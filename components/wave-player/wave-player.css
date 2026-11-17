@@ -1,0 +1,36 @@
+::view-transition-old(.wave-player-shrink) {
+  animation: wave-player-shrink var(--duration-small) var(--ease-out) both;
+}
+
+::view-transition-new(.wave-player-grow) {
+  animation: wave-player-grow var(--duration-large) var(--ease-out) both;
+}
+
+@keyframes wave-player-shrink {
+  to {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes wave-player-grow {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* Only the frames move; the page around them holds still. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* The global reduced-motion rule does not reach view-transition pseudo-elements. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
