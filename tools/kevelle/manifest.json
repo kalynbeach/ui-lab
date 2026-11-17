@@ -2,6 +2,132 @@
   "registry": "https://registry.kkb.systems/r/kevelle",
   "files": [
     {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/dock.ts",
+      "target": "components/wave-player/dock.ts",
+      "sha256": "155de78335629c9a06d7955d6af6ccefdc38dbf2df1fdf1710f04057dc0b2577",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/format.ts",
+      "target": "components/wave-player/format.ts",
+      "sha256": "df1dd1c7a4c62a17f4c5ee8b591d2f92f3e67e7220289b131a196595e31677bf",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/keys.ts",
+      "target": "components/wave-player/keys.ts",
+      "sha256": "bc4c452565f626d5c777bf8755f8cf4678045f43fe2e3f6907544679ddb2c9c8",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/loaders.ts",
+      "target": "components/wave-player/loaders.ts",
+      "sha256": "9fd15e4ea5b9f761e91536e42c04d59a468048b4cb146aa38ace5ba12a74d757",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/look.ts",
+      "target": "components/wave-player/look.ts",
+      "sha256": "c0afe5030df402853a6c6f685be81661f856b6486f1da8771e7da41c8de80195",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/model.ts",
+      "target": "components/wave-player/model.ts",
+      "sha256": "eeb686b8545418b83dba033a66ce4bcd693cd05e069bf38f53ac63179d7c26d5",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/morph.ts",
+      "target": "components/wave-player/morph.ts",
+      "sha256": "e7b74422eadfb84acddbdae40047c6f9f2d93efaf9027ca2a4e395065673b047",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/now-playing.ts",
+      "target": "components/wave-player/now-playing.ts",
+      "sha256": "989bfbb106991ce477216759f78e0f49141e281ed8864aab16e98637aaf83dc7",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/peaks.ts",
+      "target": "components/wave-player/peaks.ts",
+      "sha256": "3ac4de59f0d004bef84d541ac8bfeb0bff80e57c8535b820aea30a84d7ced0eb",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/playhead.ts",
+      "target": "components/wave-player/playhead.ts",
+      "sha256": "f2278519d11b2bef2ad00273b0e3caba890c32b2436a9f894f3e5b7158d7abc4",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/playlist.ts",
+      "target": "components/wave-player/playlist.ts",
+      "sha256": "0023d51e2242c2c8fe143225c4f8fcef142fac1cbcd4d5c7282cb20ae08a29de",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/status-view.ts",
+      "target": "components/wave-player/status-view.ts",
+      "sha256": "c7b3160561a874553418d760c99881b476926fc183a62e40f81e3070aaa4bc3e",
+      "seed": true
+    },
+    {
+      "item": "wave-player",
+      "source": "registry/kevelle/blocks/wave-player/store.ts",
+      "target": "components/wave-player/store.ts",
+      "sha256": "72163aaecc994c49415a8523675f2a0966ac9056167e0577c0e7f0ef973760cd",
+      "seed": true
+    },
+    {
+      "item": "waveform",
+      "source": "registry/kevelle/blocks/waveform/engine.ts",
+      "target": "components/waveform/engine.ts",
+      "sha256": "352612645cb5a4be567464dc78f780b60c3c28b330287aa86f9e0b5ae053a99d",
+      "seed": false
+    },
+    {
+      "item": "waveform",
+      "source": "registry/kevelle/blocks/waveform/figure.ts",
+      "target": "components/waveform/figure.ts",
+      "sha256": "1d8a824ef0dba3219c15cd61a504e170f5be82b7713d5edc6545072b2f7bd538",
+      "seed": false
+    },
+    {
+      "item": "waveform",
+      "source": "registry/kevelle/blocks/waveform/keys.ts",
+      "target": "components/waveform/keys.ts",
+      "sha256": "2c1aff416606bf096d48981a7e8d62e7441c7c9893b05ff223e02f7d28c1a177",
+      "seed": false
+    },
+    {
+      "item": "waveform",
+      "source": "registry/kevelle/blocks/waveform/settings.ts",
+      "target": "components/waveform/settings.ts",
+      "sha256": "42334dbd3e104a3ac943b2a82e32cfbcdd8d9cc54195bc84cc707f0e95de8c01",
+      "seed": false
+    },
+    {
+      "item": "waveform",
+      "source": "registry/kevelle/blocks/waveform/waveform.tsx",
+      "target": "components/waveform/waveform.tsx",
+      "sha256": "f134cc2161ffdf9af939027787c2032f90085829616876fb0876a0ea75e030a8",
+      "seed": false
+    },
+    {
       "item": "audio",
       "source": "registry/kevelle/lib/audio/feed.ts",
       "target": "lib/audio/feed.ts",
@@ -224,132 +350,6 @@
       "target": "lib/scope/settings.ts",
       "sha256": "7ebec3cb6953a431cdb30414dfb9446eaacd9f7406cb2942ed08ee358c847d2a",
       "seed": false
-    },
-    {
-      "item": "waveform",
-      "source": "registry/kevelle/blocks/waveform/engine.ts",
-      "target": "components/waveform/engine.ts",
-      "sha256": "352612645cb5a4be567464dc78f780b60c3c28b330287aa86f9e0b5ae053a99d",
-      "seed": false
-    },
-    {
-      "item": "waveform",
-      "source": "registry/kevelle/blocks/waveform/figure.ts",
-      "target": "components/waveform/figure.ts",
-      "sha256": "1d8a824ef0dba3219c15cd61a504e170f5be82b7713d5edc6545072b2f7bd538",
-      "seed": false
-    },
-    {
-      "item": "waveform",
-      "source": "registry/kevelle/blocks/waveform/keys.ts",
-      "target": "components/waveform/keys.ts",
-      "sha256": "2c1aff416606bf096d48981a7e8d62e7441c7c9893b05ff223e02f7d28c1a177",
-      "seed": false
-    },
-    {
-      "item": "waveform",
-      "source": "registry/kevelle/blocks/waveform/settings.ts",
-      "target": "components/waveform/settings.ts",
-      "sha256": "42334dbd3e104a3ac943b2a82e32cfbcdd8d9cc54195bc84cc707f0e95de8c01",
-      "seed": false
-    },
-    {
-      "item": "waveform",
-      "source": "registry/kevelle/blocks/waveform/waveform.tsx",
-      "target": "components/waveform/waveform.tsx",
-      "sha256": "f134cc2161ffdf9af939027787c2032f90085829616876fb0876a0ea75e030a8",
-      "seed": false
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/dock.ts",
-      "target": "components/wave-player/dock.ts",
-      "sha256": "155de78335629c9a06d7955d6af6ccefdc38dbf2df1fdf1710f04057dc0b2577",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/format.ts",
-      "target": "components/wave-player/format.ts",
-      "sha256": "df1dd1c7a4c62a17f4c5ee8b591d2f92f3e67e7220289b131a196595e31677bf",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/keys.ts",
-      "target": "components/wave-player/keys.ts",
-      "sha256": "bc4c452565f626d5c777bf8755f8cf4678045f43fe2e3f6907544679ddb2c9c8",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/loaders.ts",
-      "target": "components/wave-player/loaders.ts",
-      "sha256": "9fd15e4ea5b9f761e91536e42c04d59a468048b4cb146aa38ace5ba12a74d757",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/look.ts",
-      "target": "components/wave-player/look.ts",
-      "sha256": "c0afe5030df402853a6c6f685be81661f856b6486f1da8771e7da41c8de80195",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/model.ts",
-      "target": "components/wave-player/model.ts",
-      "sha256": "eeb686b8545418b83dba033a66ce4bcd693cd05e069bf38f53ac63179d7c26d5",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/morph.ts",
-      "target": "components/wave-player/morph.ts",
-      "sha256": "e7b74422eadfb84acddbdae40047c6f9f2d93efaf9027ca2a4e395065673b047",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/now-playing.ts",
-      "target": "components/wave-player/now-playing.ts",
-      "sha256": "989bfbb106991ce477216759f78e0f49141e281ed8864aab16e98637aaf83dc7",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/peaks.ts",
-      "target": "components/wave-player/peaks.ts",
-      "sha256": "3ac4de59f0d004bef84d541ac8bfeb0bff80e57c8535b820aea30a84d7ced0eb",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/playhead.ts",
-      "target": "components/wave-player/playhead.ts",
-      "sha256": "f2278519d11b2bef2ad00273b0e3caba890c32b2436a9f894f3e5b7158d7abc4",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/playlist.ts",
-      "target": "components/wave-player/playlist.ts",
-      "sha256": "0023d51e2242c2c8fe143225c4f8fcef142fac1cbcd4d5c7282cb20ae08a29de",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/status-view.ts",
-      "target": "components/wave-player/status-view.ts",
-      "sha256": "c7b3160561a874553418d760c99881b476926fc183a62e40f81e3070aaa4bc3e",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/store.ts",
-      "target": "components/wave-player/store.ts",
-      "sha256": "72163aaecc994c49415a8523675f2a0966ac9056167e0577c0e7f0ef973760cd",
-      "seed": true
     }
   ]
 }

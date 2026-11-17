@@ -1,6 +1,6 @@
 # Kevelle libs
 
-`vendor.ts` installs Kevelle code from Kalyn's own registry at `https://registry.kkb.systems/r/kevelle`. Each item is a JSON file that lists its source files. The script writes each file to its target in this repo and rewrites its imports from registry paths (`@/registry/kevelle/lib/`, `/ui/`, `/blocks/`) to this app's paths (`@/lib/`, `@/components/ui/`, `@/components/`). It changes nothing else.
+`vendor.ts` installs Kevelle code from Kalyn's own registry at `https://registry.kkb.systems/r/kevelle`. Each item is a JSON file that lists its source files. The script writes each file to its target in this repo and rewrites its imports from registry paths (`@/registry/kevelle/lib/`, `/ui/`, `/blocks/`) to this app's paths (`@/lib/`, `@/components/ui/`, `@/components/`). It changes nothing else. It refuses a registry target that resolves outside the item's own directory, and it validates every target before it writes the first file.
 
 | Item | Target | Kind |
 | --- | --- | --- |
@@ -26,11 +26,17 @@ A seed file starts as a registry copy and then belongs to this repo. Edit it lik
 bun run kevelle:check
 ```
 
-The check reads no network. It hashes each pinned file and exits with code 1 when one is missing or differs from the manifest. CI runs it on every pull request. It skips seed files.
+The check reads no network, and CI runs it on every pull request. It exits with code 1 when:
+
+- a pinned file is missing or differs from the manifest;
+- a file in a pinned directory has no manifest row (test files are exempt);
+- a manifest row marks a pinned item's file as seed, or points outside its item's directory.
+
+It skips the content of seed files.
 
 ## Update the pinned files
 
-1. Run `bun tools/kevelle/vendor.ts`. It fetches every pinned item, rewrites its files, and rewrites the manifest. Seed rows in the manifest stay as they are.
+1. Run `bun tools/kevelle/vendor.ts`. It fetches every pinned item, rewrites its files, and rewrites the manifest. Seed rows in the manifest stay as they are. A pinned file that the registry no longer serves is removed.
 2. Read the diff, then run `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build`.
 3. Commit the files and `manifest.json` together.
 
