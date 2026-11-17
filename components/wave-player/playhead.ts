@@ -36,6 +36,8 @@ export interface Playhead {
   commit(): void
   /** Clears the scrub without seeking. */
   cancel(): void
+  /** A scrub stands. False once the store dropped it, as when its track or its load changed. */
+  scrubbing(): boolean
 }
 
 /** A playhead that holds `position`, for the states workbench and tests. */
@@ -46,6 +48,7 @@ export function stillPlayhead(position: Seconds): Playhead {
     preview() {},
     commit() {},
     cancel() {},
+    scrubbing: () => false,
   }
 }
 

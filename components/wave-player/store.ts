@@ -787,6 +787,7 @@ export function createPlayerStore(
     cancel() {
       setScrub(null)
     },
+    scrubbing: () => scrub !== null,
     subscribe(listener) {
       positionListeners.add(listener)
       syncFrames()

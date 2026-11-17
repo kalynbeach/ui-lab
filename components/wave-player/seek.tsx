@@ -155,8 +155,12 @@ function useScrub(shown: number, max: number) {
 
     const now = scrub.current
 
-    // A drag that outlives its track never previews the next one.
-    if (now.kind === "dropped" || (now.kind === "previewing" && now.track !== track)) {
+    // A drag that outlives its track, or its track's source, never previews
+    // what replaced it. The store drops the scrub then, and the drag ends with it.
+    if (
+      now.kind === "dropped" ||
+      (now.kind === "previewing" && (now.track !== track || !store.playhead.scrubbing()))
+    ) {
       drop({ kind: "dropped" })
 
       return

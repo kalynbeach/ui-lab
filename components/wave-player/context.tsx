@@ -13,6 +13,15 @@ import type { PlayerStore } from "./store"
 
 export const PlayerStoreContext = React.createContext<PlayerStore | null>(null)
 
+/**
+ * Where the player's letter keys work. "focus": only while focus is inside a
+ * player frame. "page": also from anywhere on the page outside a player, for
+ * a page whose main subject is the player.
+ */
+export type PlayerKeysScope = "focus" | "page"
+
+export const PlayerKeysContext = React.createContext<PlayerKeysScope>("focus")
+
 export function usePlayerStore(caller: string): PlayerStore {
   const store = React.use(PlayerStoreContext)
   if (!store) throw new Error(`${caller} must render inside WavePlayerProvider`)

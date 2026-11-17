@@ -361,10 +361,11 @@ test("an agent can find every control by name, press Play, set Level, and set Se
   expect(handle.seeks).toEqual([45])
 })
 
-test("the letter keys send their commands", async () => {
+test("the letter keys send their commands while the player holds focus", async () => {
   const player = await renderCard()
   const user = userEvent.setup()
 
+  screen.getByRole("region", { name: "WavePlayer" }).focus()
   await user.keyboard("smrt")
   expect(snapshot(player).settings).toMatchObject({
     shuffle: true,
@@ -408,6 +409,7 @@ test("two frames on one store share the keys without a warning", async () => {
     </>
   )
 
+  screen.getAllByRole("region", { name: "WavePlayer" })[1].focus()
   await userEvent.keyboard("s")
   expect(snapshot(player).settings.shuffle).toBe(true)
   expect(screen.getAllByRole("region", { name: "WavePlayer" })).toHaveLength(2)
@@ -448,4 +450,100 @@ test("an agent can't add files without a person", async () => {
   const result = await agent.act({ steps: [{ ref: "Add files", action: "press" }] })
   expect(result.ok).toBe(false)
   expect(result.error?.message).toMatch(/person/i)
+})
+
+test("a drag that outlives its track's source seeks nothing", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  await act(() => player.load())
+
+  const pointer = drag()
+
+  await pointer.down(30)
+  act(() =>
+    player.store.setTracks(
+      TEST_TRACKS.map((track) => (track.id === "a" ? { ...track, src: "/replacement.mp3" } : track))
+    )
+  )
+  expect(player.store.playhead.position()).toBe(0)
+
+  await pointer.move(60)
+  await pointer.up(60)
+
+  expect(player.store.playhead.position()).toBe(0)
+  expect(player.store.playhead.scrubbing()).toBe(false)
+})
+
+test("Space during text composition starts nothing", async () => {
+  const player = await renderCard()
+  const frame = screen.getByRole("region", { name: "WavePlayer" })
+
+  frame.focus()
+  fireEvent.keyDown(frame, { key: " ", code: "Space", isComposing: true })
+
+  expect(player.station.openStrip).not.toHaveBeenCalled()
+})
+
+test("a letter typed outside the player leaves it alone", async () => {
+  const player = await renderCard(
+    <>
+      <WavePlayerCard />
+      <button type="button">Other control</button>
+    </>
+  )
+
+  screen.getByRole("button", { name: "Other control" }).focus()
+  await userEvent.keyboard("n")
+  expect(snapshot(player).current?.track.id).toBe("a")
+
+  document.body.focus()
+  await userEvent.keyboard("n")
+  expect(snapshot(player).current?.track.id).toBe("a")
+})
+
+test("with page keys, a letter works from anywhere outside a player", async () => {
+  const player = testPlayer()
+
+  render(
+    <WavePlayerStore store={player.store} keys="page">
+      <WavePlayerCard />
+      <button type="button">Other control</button>
+    </WavePlayerStore>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  await userEvent.keyboard("n")
+  expect(snapshot(player).current?.track.id).toBe("b")
+
+  screen.getByRole("button", { name: "Other control" }).focus()
+  await userEvent.keyboard("p")
+  expect(snapshot(player).current?.track.id).toBe("a")
+})
+
+test("focus chooses which of two players takes a letter", async () => {
+  const first = testPlayer()
+  const second = testPlayer()
+
+  render(
+    <>
+      <WavePlayerStore store={first.store}>
+        <WavePlayerCard />
+      </WavePlayerStore>
+      <WavePlayerStore store={second.store}>
+        <WavePlayerCard />
+      </WavePlayerStore>
+    </>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  screen.getAllByRole("region", { name: "WavePlayer" })[0].focus()
+  await userEvent.keyboard("s")
+
+  expect(snapshot(first).settings.shuffle).toBe(true)
+  expect(snapshot(second).settings.shuffle).toBe(false)
 })

@@ -10,7 +10,7 @@ import * as React from "react"
 import { parseWaveformConfig } from "@/components/waveform/settings"
 import { WaveformProvider } from "@/components/waveform/waveform"
 
-import { PlayerStoreContext, usePlayer } from "./context"
+import { PlayerKeysContext, PlayerStoreContext, usePlayer, type PlayerKeysScope } from "./context"
 import type { WavePlayerStatus } from "./model"
 import type { WavePlayerTrack } from "./playlist"
 import { announcement, STATUS_VIEW } from "./status-view"
@@ -22,10 +22,13 @@ export const DEFAULT_SETTINGS_KEY = "wave-player"
 export function WavePlayerProvider({
   tracks,
   settingsKey = DEFAULT_SETTINGS_KEY,
+  keys,
   children,
 }: {
   readonly tracks: readonly WavePlayerTrack[]
   readonly settingsKey?: string
+  /** Where the letter keys work. "focus" by default, so a host's other controls keep their keys. */
+  readonly keys?: PlayerKeysScope
   readonly children: React.ReactNode
 }) {
   const [store] = React.useState(() =>
@@ -34,15 +37,21 @@ export function WavePlayerProvider({
 
   React.useEffect(() => store.setTracks(tracks), [store, tracks])
 
-  return <WavePlayerStore store={store}>{children}</WavePlayerStore>
+  return (
+    <WavePlayerStore store={store} keys={keys}>
+      {children}
+    </WavePlayerStore>
+  )
 }
 
 // The provider around a store built elsewhere, for tests with a fake environment.
 export function WavePlayerStore({
   store,
+  keys = "focus",
   children,
 }: {
   readonly store: PlayerStore
+  readonly keys?: PlayerKeysScope
   readonly children: React.ReactNode
 }) {
   React.useEffect(() => store.restoreSettings(), [store])
@@ -50,7 +59,9 @@ export function WavePlayerStore({
 
   return (
     <PlayerStoreContext value={store}>
-      <Screen>{children}</Screen>
+      <PlayerKeysContext value={keys}>
+        <Screen>{children}</Screen>
+      </PlayerKeysContext>
       <Announcer />
     </PlayerStoreContext>
   )

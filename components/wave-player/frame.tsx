@@ -4,7 +4,7 @@ import * as React from "react"
 import { useShortcut } from "@ui-sdk/react/shortcuts"
 import { cn } from "cn"
 
-import { usePlayer, usePlayerStore } from "./context"
+import { PlayerKeysContext, usePlayer, usePlayerStore, type PlayerKeysScope } from "./context"
 import type { PlayerCommand, PlayerState } from "./model"
 import { frameMotion, frameWraps, type FrameKind, type MountMotion } from "./morph"
 import type { Repeat } from "./settings"
@@ -43,16 +43,26 @@ export const PLAYER_KEYS = {
 
 export type PlayerKey = keyof typeof PLAYER_KEYS
 
-// A letter typed in the Playlist finds a row by its title instead.
-const outsidePlaylist = () => !document.activeElement?.closest("[role=grid]")
+// A letter goes to the player whose frame holds focus. With page keys it
+// also works from anywhere outside a player. In the Playlist a letter finds a
+// row by its title instead.
+function ownsLetters(frame: HTMLElement | null, scope: PlayerKeysScope): boolean {
+  const active = document.activeElement
 
-function useLetterKey(key: PlayerKey) {
+  if (active?.closest("[role=grid]")) return false
+  if (frame?.contains(active)) return true
+
+  return scope === "page" && !active?.closest("[data-slot=wave-player]")
+}
+
+function useLetterKey(key: PlayerKey, frame: React.RefObject<HTMLElement | null>) {
   const store = usePlayerStore("WavePlayerFrame")
+  const scope = React.use(PlayerKeysContext)
   const { description, command } = PLAYER_KEYS[key]
 
   useShortcut(key, () => store.send(command(store.getSnapshot())), {
     description,
-    when: outsidePlaylist,
+    when: () => ownsLetters(frame.current, scope),
   })
 }
 
@@ -71,6 +81,7 @@ function spaceToggles(event: React.KeyboardEvent): boolean {
     event.ctrlKey ||
     event.metaKey ||
     event.altKey ||
+    event.nativeEvent.isComposing ||
     event.defaultPrevented
   )
     return false
@@ -102,16 +113,19 @@ export function WavePlayerFrame({
   const motion = useMountMotion()
   const [wraps] = React.useState(() => frameWraps(motion))
 
-  useLetterKey("n")
-  useLetterKey("p")
-  useLetterKey("m")
-  useLetterKey("s")
-  useLetterKey("r")
-  useLetterKey("t")
+  const ref = React.useRef<HTMLElement>(null)
+
+  useLetterKey("n", ref)
+  useLetterKey("p", ref)
+  useLetterKey("m", ref)
+  useLetterKey("s", ref)
+  useLetterKey("r", ref)
+  useLetterKey("t", ref)
 
   const frame = (
     // The region takes focus from a click on its body, so Space reaches it, without adding a tab stop.
     <section
+      ref={ref}
       aria-label="WavePlayer"
       tabIndex={-1}
       data-slot="wave-player"
