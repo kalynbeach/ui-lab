@@ -122,7 +122,7 @@ bun run wave-player:check http://localhost:3100
 
 The check visits `/wave-player` and each variant route at 1280 and 390 pixels wide. `ROUTES` at the top of `tools/wave-player/check.ts` lists what each route must have and must not have. For example, the bar has Progress and no Seek slider, and `/wave-player/playlist` has Playlist rows and no transport. A route fails when it answers with any status but 200, when it lacks a part that `ROUTES` requires, or when it shows a part that `ROUTES` rules out. The check reports SKIP only where `ROUTES` says the route lacks what that check needs.
 
-On every route, the check confirms that each control has a name, that Tab reaches every control, and that the page has no horizontal scroll. Before anything plays, it stores muted settings, reloads the page, and reads the stored settings back. On a route with transport, it also confirms that Mute is pressed, and then it:
+On every route, the check confirms that each control has a name, that Tab reaches every control, and that the page has no horizontal scroll. After each check, it fails if a closed tooltip is still drawn. Before anything plays, it stores muted settings, reloads the page, and reads the stored settings back. On a route with transport, it also confirms that Mute is pressed, and then it:
 
 - plays, pauses, and confirms that the time and the screen hold while paused,
 - seeks with the pointer to a point far from where the track stands, and requires the time to land near that point,

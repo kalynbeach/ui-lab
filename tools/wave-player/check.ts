@@ -98,6 +98,8 @@ type PlayerState = {
   readonly rows: readonly PlaylistRow[]
   readonly session: { readonly state: string; readonly title: string | null }
   readonly popups: Record<string, string | null>
+  // Tooltips that are closed and still drawn.
+  readonly strayTips: readonly string[]
   readonly scrollWidth: number
   readonly clientWidth: number
 }
@@ -171,6 +173,9 @@ const READ_STATE = `(() => {
     popups: Object.fromEntries(
       ${JSON.stringify(POPUPS)}.map((label) => [label, button(label)?.getAttribute("aria-expanded") ?? null])
     ),
+    strayTips: [...document.querySelectorAll('[role="tooltip"]')]
+      .filter((tip) => !tip.matches(":popover-open") && tip.checkVisibility())
+      .map((tip) => (tip.textContent ?? "").replace(/[^ -~]+/g, " ").trim()),
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
   }
@@ -719,7 +724,13 @@ async function runRoute(route: Route, width: Width): Promise<Row[]> {
     let outcome: Outcome
 
     try {
-      outcome = { result: "PASS", measured: await check.run(at) }
+      const measured = await check.run(at)
+      // A fast press can close a tooltip before the page renders it open. It
+      // then stays drawn over its neighbors and takes their presses.
+      const stray = state().strayTips
+
+      expect(stray.length === 0, `a closed tooltip is still drawn: ${stray.join(", ")}`)
+      outcome = { result: "PASS", measured }
     } catch (error) {
       outcome = { result: "FAIL", measured: error instanceof Error ? error.message : String(error) }
     }
