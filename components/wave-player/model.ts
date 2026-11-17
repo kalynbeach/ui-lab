@@ -163,7 +163,7 @@ export type PlayerState = {
   /**
    * Playback is under way: the first sounding gesture opened the strip, a
    * track is current, and the last track has not ended. A pause, a cancelled
-   * load, and a failed track keep it, so Retry and Next stay where the
+   * load, and a failed track keep it, so Play and Next stay where the
    * listener can reach them. A browser without Web Audio never opens the
    * strip, so it never turns true. Replay after the end turns it true again.
    * Hosts mount the mini player and the bar by it, through useWavePlayer().

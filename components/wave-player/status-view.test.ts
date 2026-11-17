@@ -34,7 +34,7 @@ describe("announcement", () => {
     [status("blocked"), "Press Play to hear Low tide."],
     [status("ended"), "Finished Low tide."],
     [{ kind: "failed", reason: "load", track }, "Couldn't load Low tide."],
-    [{ kind: "failed", reason: "audio", track }, "Audio stopped working. Press Retry to try again."],
+    [{ kind: "failed", reason: "audio", track }, "Audio stopped working. Press Play to try again."],
     [{ kind: "failed", reason: "unsupported", track }, "This browser can't play audio."],
   ])("%o says %s", (given, expected) => {
     expect(announcement(given)).toBe(expected)
@@ -61,17 +61,16 @@ describe("STATUS_VIEW", () => {
     expect(STATUS_VIEW[kind].hold).toBe(hold)
   })
 
-  test.each<[StatusKind, string, string]>([
-    ["idle", "play", "Play"],
-    ["loading", "pause", "Pause"],
-    ["playing", "pause", "Pause"],
-    ["paused", "play", "Play"],
-    ["blocked", "play", "Play"],
-    ["ended", "play", "Replay"],
-    ["failed", "retry", "Retry"],
-  ])("%s shows the %s glyph named %s", (kind, glyph, label) => {
+  test.each<[StatusKind, string]>([
+    ["idle", "play"],
+    ["loading", "pause"],
+    ["playing", "pause"],
+    ["paused", "play"],
+    ["blocked", "play"],
+    ["ended", "play"],
+    ["failed", "retry"],
+  ])("%s shows the %s glyph", (kind, glyph) => {
     expect(STATUS_VIEW[kind].glyph).toBe(glyph)
-    expect(STATUS_VIEW[kind].label).toBe(label)
   })
 
   test.each<[StatusKind, string | null]>([
@@ -104,4 +103,20 @@ describe("STATUS_VIEW", () => {
   ])("%s reports Media Session state %s", (kind, session) => {
     expect(STATUS_VIEW[kind].session).toBe(session)
   })
+})
+
+test("Play is pressed exactly while the track loads or plays", () => {
+  const pressed = Object.entries(STATUS_VIEW)
+    .filter(([, view]) => view.pressed)
+    .map(([kind]) => kind)
+
+  expect(pressed).toEqual(["loading", "playing"])
+})
+
+test("Play describes itself only where pressing it does more than start playback", () => {
+  const described = Object.entries(STATUS_VIEW)
+    .filter(([, view]) => view.description !== null)
+    .map(([kind]) => kind)
+
+  expect(described).toEqual(["ended", "failed"])
 })

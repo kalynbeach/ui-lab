@@ -15,10 +15,15 @@ import type {
 export type WavePlayerHold = "frozen" | "still"
 
 export type StatusView = {
-  /** The center button's glyph. */
+  /** The Play toggle's glyph. */
   readonly glyph: "play" | "pause" | "retry"
-  /** The center button's accessible name. */
-  readonly label: "Play" | "Pause" | "Replay" | "Retry"
+  /**
+   * The Play toggle is pressed. Its name stays "Play" in every status, so a
+   * person or an agent finds the same control; pressed says it is playing.
+   */
+  readonly pressed: boolean
+  /** What pressing Play does when that differs from starting playback. The toggle's accessible description. */
+  readonly description: string | null
   /** False after a failure: every time readout shows --:--. Views read timesKnown. */
   readonly times: boolean
   /** A seek applies now, or once the track loads. */
@@ -44,7 +49,8 @@ export type StatusView = {
 export const STATUS_VIEW = {
   idle: {
     glyph: "play",
-    label: "Play",
+    pressed: false,
+    description: null,
     times: true,
     seekable: true,
     started: false,
@@ -54,7 +60,8 @@ export const STATUS_VIEW = {
   },
   loading: {
     glyph: "pause",
-    label: "Pause",
+    pressed: true,
+    description: null,
     times: true,
     seekable: true,
     started: false,
@@ -64,7 +71,8 @@ export const STATUS_VIEW = {
   },
   playing: {
     glyph: "pause",
-    label: "Pause",
+    pressed: true,
+    description: null,
     times: true,
     seekable: true,
     started: true,
@@ -74,7 +82,8 @@ export const STATUS_VIEW = {
   },
   paused: {
     glyph: "play",
-    label: "Play",
+    pressed: false,
+    description: null,
     times: true,
     seekable: true,
     started: true,
@@ -84,7 +93,8 @@ export const STATUS_VIEW = {
   },
   blocked: {
     glyph: "play",
-    label: "Play",
+    pressed: false,
+    description: null,
     times: true,
     seekable: true,
     started: false,
@@ -94,7 +104,8 @@ export const STATUS_VIEW = {
   },
   ended: {
     glyph: "play",
-    label: "Replay",
+    pressed: false,
+    description: "Plays the track again from the start.",
     times: true,
     seekable: true,
     started: true,
@@ -104,7 +115,8 @@ export const STATUS_VIEW = {
   },
   failed: {
     glyph: "retry",
-    label: "Retry",
+    pressed: false,
+    description: "Tries again.",
     times: false,
     seekable: false,
     started: false,
@@ -119,7 +131,7 @@ export function timesKnown(state: PlayerState): boolean {
   return state.current !== null && STATUS_VIEW[state.status.kind].times
 }
 
-/** The card's Alert over a failed track's screen. `retry` turns the transport's center key to Retry where pressing it can help. */
+/** The Alert over a failed track's screen. `retry`: pressing Play can help. */
 export const FAILURE = {
   load: {
     title: "Couldn't load the track",
@@ -129,7 +141,7 @@ export const FAILURE = {
   },
   audio: {
     title: "Audio stopped",
-    description: "The page's audio stopped working. Retry starts it again.",
+    description: "The page's audio stopped working. Play starts it again.",
     retry: true,
   },
   unsupported: {
@@ -174,7 +186,7 @@ export function announcement(status: WavePlayerStatus): string {
         case "load":
           return `Couldn't load ${title}.`
         case "audio":
-          return "Audio stopped working. Press Retry to try again."
+          return "Audio stopped working. Press Play to try again."
         case "unsupported":
           return "This browser can't play audio."
         default:
