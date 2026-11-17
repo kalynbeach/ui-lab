@@ -64,8 +64,8 @@ function player(playlist: Playlist, seed = 7) {
       return played
     },
     replace(next: Playlist) {
+      intent = reconcilePlaylist(intent, playlist, next)
       playlist = next
-      intent = reconcilePlaylist(intent, next)
     },
   }
 }
@@ -395,5 +395,47 @@ describe("playlist updates", () => {
     p.replace(list())
 
     expect(p.current()).toBeNull()
+  })
+})
+
+describe("playlist updates after a direct play skipped a track", () => {
+  function skippedB() {
+    const p = player(ABC)
+
+    p.send({ type: "play-track", id: "c" })
+    p.send({ type: "previous" })
+
+    return p
+  }
+
+  test("an appended track joins the round, and the skipped track stays skipped", () => {
+    const p = skippedB()
+
+    p.replace(list("a", "b", "c", "d"))
+
+    expect(p.current()).toBe("a")
+    expect(p.walk()).toEqual(["c", "d"])
+  })
+
+  test("an update that keeps the same ids leaves the round alone", () => {
+    const p = skippedB()
+
+    p.replace(
+      parsePlaylist(
+        ["a", "b", "c"].map((id): WavePlayerTrack => ({ id, title: `${id} (remaster)`, src: `/${id}.mp3` }))
+      ).playlist
+    )
+
+    expect(p.walk()).toEqual(["c"])
+  })
+
+  test("shuffled, an appended track joins the end and the skipped track stays skipped", () => {
+    const p = setUp(ABC, "off", false)
+
+    p.send({ type: "play-track", id: "c" })
+    p.send({ type: "previous" })
+    p.replace(list("a", "b", "c", "d"))
+
+    expect(p.walk()).toEqual(["c", "d"])
   })
 })

@@ -15,7 +15,7 @@ import {
 } from "@/lib/audio/index"
 
 import type { WavePlayerTrack } from "./playlist"
-import { createPlayerStore, type PlayerEnv } from "./store"
+import { createPlayerStore, SAVE_DELAY_MS, type PlayerEnv } from "./store"
 
 const TRACKS: readonly WavePlayerTrack[] = [
   { id: "a", title: "Low tide", src: "/a.mp3" },
@@ -128,6 +128,16 @@ function setup({
   const log: string[] = []
   const strips: FakeStrip[] = []
   const stationListeners = new Set<() => void>()
+  const timers = new Set<{ callback: () => void; ms: number }>()
+  /** Fires every timer that waits `ms`, as if that long had passed. */
+  const elapse = (ms: number) => {
+    for (const timer of [...timers]) {
+      if (timer.ms !== ms) continue
+
+      timers.delete(timer)
+      timer.callback()
+    }
+  }
 
   const station: AudioStation = {
     getSnapshot: () => running,
@@ -161,7 +171,12 @@ function setup({
     decodePeaks: vi.fn(() => new Promise<null>(() => {})),
     preload: vi.fn(() => new Promise<void>(() => {})),
     frame: () => () => {},
-    setTimer: () => () => {},
+    setTimer(callback, ms) {
+      const timer = { callback, ms }
+      timers.add(timer)
+
+      return () => timers.delete(timer)
+    },
     report: vi.fn(),
     seed: vi.fn(() => 7),
     settings: storage,
@@ -172,7 +187,7 @@ function setup({
     for (const listener of [...stationListeners]) listener()
   }
 
-  return { store, station, strips, log, stationNotify, env, storage }
+  return { store, station, strips, log, stationNotify, env, storage, elapse }
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -412,7 +427,7 @@ describe("saved settings", () => {
   })
 
   test("the defaults never overwrite a save: nothing is written before restore, or by it", () => {
-    const { store, storage } = setup({ stored: SAVED })
+    const { store, storage, elapse } = setup({ stored: SAVED })
 
     store.retain("durations")
     store.send({ type: "toggle" })
@@ -424,7 +439,53 @@ describe("saved settings", () => {
     expect(storage.text).toBe(SAVED)
 
     store.send({ type: "set-time", time: "elapsed" })
+    elapse(SAVE_DELAY_MS)
     expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, time: "elapsed", level: 0.3 })
+  })
+
+  test("a level drag writes once after it settles, with the last value", () => {
+    const { store, storage, elapse } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+
+    for (let step = 1; step <= 100; step += 1) store.send({ type: "set-level", level: step / 100 })
+
+    expect(storage.write).not.toHaveBeenCalled()
+
+    elapse(SAVE_DELAY_MS)
+
+    expect(storage.write).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(storage.text!)).toMatchObject({ level: 1, muted: false })
+  })
+
+  test("release writes a waiting change at once", () => {
+    const { store, storage } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+    store.send({ type: "set-repeat", repeat: "all" })
+    expect(storage.write).not.toHaveBeenCalled()
+
+    store.release()
+
+    expect(JSON.parse(storage.text!)).toMatchObject({ repeat: "all" })
+  })
+
+  test("a level raised before restore stays unmuted over a saved mute", () => {
+    const { store } = setup({ stored: SAVED })
+
+    store.send({ type: "set-level", level: 0.8 })
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings).toMatchObject({ level: 0.8, muted: false })
+  })
+
+  test("a setting set to its default before restore still wins over the save", () => {
+    const { store } = setup({ stored: SAVED })
+
+    store.send({ type: "set-muted", muted: false })
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings).toMatchObject({ level: 0.3, muted: false })
   })
 
   test("a setting changed before restore keeps its value, and the rest come from the save", () => {
@@ -450,12 +511,13 @@ describe("saved settings", () => {
   test.each([null, "not json", "{\"version\":9,\"level\":0.1}", "[]"])(
     "stored %s leaves the defaults, and saving starts",
     (stored) => {
-      const { store, storage } = setup({ stored })
+      const { store, storage, elapse } = setup({ stored })
 
       expect(() => store.restoreSettings()).not.toThrow()
       expect(store.getSnapshot().settings.level).toBe(1)
 
       store.send({ type: "set-level", level: 0.7 })
+      elapse(SAVE_DELAY_MS)
 
       expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, level: 0.7 })
     }
@@ -861,4 +923,21 @@ describe("release", () => {
     expect(stale.seeks).toEqual([])
     expect(store.playhead.position()).toBe(8)
   })
+})
+
+test("a file added after a direct play skipped a track plays after the retrace, and the skipped track stays skipped", () => {
+  const { store } = setup()
+
+  store.send({ type: "play-track", id: "c" })
+  store.send({ type: "previous" })
+
+  const [file] = store.addFiles([new File(["x"], "Tide pool.mp3", { type: "audio/mpeg" })]).tracks
+  const visited: string[] = []
+
+  while (store.getSnapshot().canNext && visited.length < 5) {
+    store.send({ type: "next" })
+    visited.push(store.getSnapshot().current!.track.id)
+  }
+
+  expect(visited).toEqual(["c", file.id])
 })

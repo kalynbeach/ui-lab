@@ -51,6 +51,7 @@ import {
   reconcilePlaylist,
   reseedIntent,
   seekTo,
+  settingsSetBy,
   startsAudio,
   wantedLoads,
   type Effect,
@@ -94,6 +95,9 @@ const PLAYER_CEILING = 0.5
 
 /** A metadata probe that hears nothing for this long counts as failed, so it can't hold up the probes behind it. */
 export const PROBE_TIMEOUT_MS = 10_000
+
+/** How long a settings write waits for more changes. release() writes at once. */
+export const SAVE_DELAY_MS = 250
 
 const STRIP_OPTIONS: StripOptions = {
   label: "WavePlayer",
@@ -237,10 +241,12 @@ export function createPlayerStore(
   let seeded = false
   /** restoreSettings() ran, so commit() saves. */
   let restored = false
-  /** Settings someone changed before the restore ran. */
+  /** Settings a command set before the restore ran. They win over the save. */
   const touched = new Set<keyof Settings>()
   /** The text last read or written, so an unchanged setting writes nothing. */
   let saved: string | null = null
+  /** A write waiting out SAVE_DELAY_MS. It reads the settings when it fires, so later changes ride along. */
+  let cancelSave: (() => void) | null = null
   /** Open from the first sounding gesture until release(). */
   let audio: OpenAudio | null = null
   let nowPlaying: NowPlaying | null = null
@@ -347,7 +353,18 @@ export function createPlayerStore(
     return audio
   }
 
+  /** A level drag changes the settings many times a second, so writes are spaced out and the last value always lands. */
   function save(): void {
+    if (!restored || !env.settings || cancelSave) return
+    if (serializeSettings(intent.settings) === saved) return
+
+    cancelSave = env.setTimer(flushSave, SAVE_DELAY_MS)
+  }
+
+  function flushSave(): void {
+    cancelSave?.()
+    cancelSave = null
+
     if (!restored || !env.settings) return
 
     const text = serializeSettings(intent.settings)
@@ -404,6 +421,10 @@ export function createPlayerStore(
       seeded = true
     }
 
+    // What the command sets, not what it changed: a level above zero also
+    // asks for unmuted, and that must hold even when unmuted is the default.
+    if (!restored) for (const key of settingsSetBy(command)) touched.add(key)
+
     const plan = planCommand(command, {
       playlist,
       intent,
@@ -417,10 +438,6 @@ export function createPlayerStore(
     })
 
     if (plan.intent === intent && plan.effect.kind === "none") return
-
-    if (!restored)
-      for (const key of Object.keys(plan.intent.settings) as (keyof Settings)[])
-        if (plan.intent.settings[key] !== intent.settings[key]) touched.add(key)
 
     if (startsAudio(plan.effect)) {
       if (env.support() === "unsupported") {
@@ -780,6 +797,7 @@ export function createPlayerStore(
 
       const before = new Map(site.tracks.map((track) => [track.id, track.source]))
       const was = currentTrack()
+      const previous = playlist
 
       site = parsed.playlist
       playlist = joinPlaylist(site, files)
@@ -791,7 +809,7 @@ export function createPlayerStore(
           forget(id)
       }
 
-      adopt(reconcilePlaylist(intent, playlist))
+      adopt(reconcilePlaylist(intent, previous, playlist))
 
       const now = currentTrack()
 
@@ -833,12 +851,14 @@ export function createPlayerStore(
 
       if (!first) return added
 
+      const previous = playlist
+
       fileCount += added.tracks.length
       files = [...files, ...added.tracks]
       playlist = joinPlaylist(site, files)
       // An empty player gets its first track here, current and idle; a
       // playing one keeps its current track, so nothing stops or starts.
-      adopt(reconcilePlaylist(intent, playlist))
+      adopt(reconcilePlaylist(intent, previous, playlist))
       send({ type: "select-track", id: first.id })
       commit()
 
@@ -859,6 +879,7 @@ export function createPlayerStore(
       }
     },
     release() {
+      flushSave()
       token += 1
       handle = null
       pendingSeek = null

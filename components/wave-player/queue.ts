@@ -187,14 +187,17 @@ export function reshuffle(
 }
 
 /**
- * The playlist changed. Every part keeps only ids still listed. Current stays
- * by id; when the list dropped it, the first track becomes current with no
- * history. Unshuffled, pending follows the new Playlist order after current.
- * Shuffled, pending keeps its order and new tracks join its end in Playlist
- * order.
+ * The playlist changed from `previous` to `order`. Every part keeps only ids
+ * still listed. Current stays by id; when the list dropped it, the first
+ * track becomes current with no history. A track is upcoming only when it
+ * was already pending or is new to the list, so a track that a direct play
+ * skipped stays skipped. Unshuffled, pending follows the new Playlist order
+ * after current. Shuffled, pending keeps its order and new tracks join its
+ * end in Playlist order.
  */
 export function reconcile(
   queue: Queue,
+  previous: readonly TrackId[],
   order: readonly TrackId[],
   shuffle: boolean
 ): Queue {
@@ -206,24 +209,22 @@ export function reconcile(
   const past = queue.past.filter((id) => listed.has(id))
   const forward = queue.forward.filter((id) => listed.has(id))
 
-  if (!shuffle) {
-    const round = pendingAfter(order, queue.current, forward, false, queue.seed)
-
-    return make({ ...queue, past, forward, pending: round.ids })
-  }
-
-  const known = new Set([
-    ...queue.past,
-    queue.current,
-    ...queue.forward,
-    ...queue.pending,
-  ])
-
   const taken = new Set([queue.current, ...forward])
+  const before = new Set(previous)
+  const added = order.filter((id) => !before.has(id) && !taken.has(id))
+
+  if (!shuffle) {
+    const upcoming = new Set([...queue.pending, ...added])
+    const pending = order
+      .slice(order.indexOf(queue.current) + 1)
+      .filter((id) => upcoming.has(id) && !taken.has(id))
+
+    return make({ ...queue, past, forward, pending })
+  }
 
   const pending = [
     ...queue.pending.filter((id) => listed.has(id) && !taken.has(id)),
-    ...order.filter((id) => !known.has(id)),
+    ...added,
   ]
 
   return make({ ...queue, past, forward, pending })

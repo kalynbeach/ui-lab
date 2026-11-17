@@ -401,8 +401,8 @@ describe("selection", () => {
   test("the selection clears when the list drops its track, and stays otherwise", () => {
     const intent = after([{ type: "select-track", id: "c" }])
 
-    expect(reconcilePlaylist(intent, parsePlaylist(TRACKS.slice(0, 2)).playlist).selected).toBeNull()
-    expect(reconcilePlaylist(intent, parsePlaylist([...TRACKS].reverse()).playlist).selected).toBe("c")
+    expect(reconcilePlaylist(intent, playlist, parsePlaylist(TRACKS.slice(0, 2)).playlist).selected).toBeNull()
+    expect(reconcilePlaylist(intent, playlist, parsePlaylist([...TRACKS].reverse()).playlist).selected).toBe("c")
   })
 
   test("the snapshot shows the selection apart from the current track", () => {

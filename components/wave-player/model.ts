@@ -452,10 +452,19 @@ export function reseedIntent(intent: Intent, seed: number): Intent {
  * (see reconcile() in queue.ts), and a selection the list dropped clears.
  * Settings never change.
  */
-export function reconcilePlaylist(intent: Intent, playlist: Playlist): Intent {
+export function reconcilePlaylist(
+  intent: Intent,
+  previous: Playlist,
+  playlist: Playlist
+): Intent {
   return {
     ...intent,
-    queue: reconcile(intent.queue, order(playlist), intent.settings.shuffle),
+    queue: reconcile(
+      intent.queue,
+      order(previous),
+      order(playlist),
+      intent.settings.shuffle
+    ),
     selected:
       intent.selected !== null && playlist.indexOf.has(intent.selected)
         ? intent.selected
@@ -507,6 +516,27 @@ export type PlayerCommand =
   | { readonly type: "set-shuffle"; readonly shuffle: boolean }
   | { readonly type: "set-repeat"; readonly repeat: Settings["repeat"] }
   | { readonly type: "set-time"; readonly time: Settings["time"] }
+
+/**
+ * The settings a command sets on purpose, whether or not their values change.
+ * A level above 0 also asks for unmuted, so it claims both.
+ */
+export function settingsSetBy(command: PlayerCommand): readonly (keyof Settings)[] {
+  switch (command.type) {
+    case "set-level":
+      return command.level > 0 ? ["level", "muted"] : ["level"]
+    case "set-muted":
+      return ["muted"]
+    case "set-shuffle":
+      return ["shuffle"]
+    case "set-repeat":
+      return ["repeat"]
+    case "set-time":
+      return ["time"]
+    default:
+      return []
+  }
+}
 
 /** Previous restarts the track when the position is past this, strictly; at 3.0 s it goes back a track. */
 const RESTART_AFTER = 3
