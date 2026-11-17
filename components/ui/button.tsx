@@ -7,14 +7,16 @@ import { cn } from "cn"
 import { Spinner } from "./spinner"
 import "./ui.css"
 
-// Under a coarse pointer the ::after grows to 44px. Keys in a row would
-// overlap their neighbors' ::after, so they widen to 44px instead.
+// Under a coarse pointer the ::after grows to 44px. Keys in a group would
+// overlap their neighbors' ::after, so they grow to 44px along the group's
+// axis instead: wider in a row, taller in a column.
 const hitArea =
-  "relative pointer-coarse:after:absolute pointer-coarse:after:inset-[min(0px,calc(50%_-_22px))] in-data-[slot=toolbar]:pointer-coarse:min-w-11 in-data-[slot=toggle-group]:pointer-coarse:min-w-11 in-data-[slot=segmented-control]:pointer-coarse:min-w-11"
+  "relative pointer-coarse:after:absolute pointer-coarse:after:inset-[min(0px,calc(50%_-_22px))] in-data-[slot=toolbar]:pointer-coarse:min-w-11 in-data-[slot=toggle-group]:pointer-coarse:min-w-11 in-data-[slot=segmented-control]:pointer-coarse:min-w-11 in-[[data-slot=toolbar][data-orientation=vertical]]:pointer-coarse:min-h-11 in-[[data-slot=toggle-group][data-orientation=vertical]]:pointer-coarse:min-h-11 in-[[data-slot=segmented-control][data-orientation=vertical]]:pointer-coarse:min-h-11"
 
 const key = cn(
-  "inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,translate] outline-none select-none",
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring",
+  "inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,translate] select-none",
+  // The ring is a box shadow, which forced colors removes, so focus also keeps an outline there.
+  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
   "active:not-aria-disabled:not-data-pending:not-aria-[haspopup]:translate-y-px",
   "data-disabled:cursor-not-allowed data-disabled:opacity-50 data-pending:cursor-progress",
   "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",

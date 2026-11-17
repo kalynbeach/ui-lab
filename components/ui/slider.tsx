@@ -105,7 +105,7 @@ function SliderThumb({
       className={cn(
         "block size-3 shrink-0 border border-ring bg-background alloy-raised shadow-none ring-ring transition-[color,box-shadow,border-color] select-none",
         "after:absolute after:-inset-2 pointer-coarse:after:-inset-4.25",
-        "not-data-disabled:hover:ring-2 active:ring-2 has-focus-visible:ring-2 data-dragging:ring-2",
+        "not-data-disabled:hover:ring-2 active:ring-2 has-focus-visible:ring-2 has-focus-visible:outline-hidden data-dragging:ring-2",
         "dark:text-signal dark:active:border-signal-bright dark:active:glow dark:has-focus-visible:border-signal-bright dark:has-focus-visible:glow dark:data-dragging:border-signal-bright dark:data-dragging:glow",
         "data-disabled:pointer-events-none",
         className

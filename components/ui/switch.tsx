@@ -11,7 +11,7 @@ function Switch({
   return (
     <SwitchPart
       className={cn(
-        "peer group/switch relative inline-flex h-[18.4px] w-8 shrink-0 items-center border border-transparent transition-[background-color,border-color,box-shadow] outline-none",
+        "peer group/switch relative inline-flex h-[18.4px] w-8 shrink-0 items-center border border-transparent transition-[background-color,border-color,box-shadow] focus-visible:outline-hidden",
         // The ::after is the hit area: 56 by 34px, and at least 50px tall under a coarse pointer.
         "after:absolute after:-inset-x-3 after:-inset-y-2 pointer-coarse:after:-inset-y-4",
         "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
