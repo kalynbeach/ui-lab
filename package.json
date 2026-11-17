@@ -10,7 +10,8 @@
     "typecheck": "bun --bun next typegen && tsc --noEmit",
     "test": "bun --bun vitest run",
     "contrast": "bun tools/contrast.ts",
-    "kevelle:check": "bun tools/kevelle/vendor.ts --check"
+    "kevelle:check": "bun tools/kevelle/vendor.ts --check",
+    "wave-player:check": "bun tools/wave-player/check.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
