@@ -195,6 +195,17 @@ describe("click to play", () => {
     expect(store.getSnapshot().current?.track.id).toBe("c")
   })
 
+  test("selecting a Playlist row opens nothing and plays nothing", () => {
+    const { store, station } = setup()
+
+    store.send({ type: "select-track", id: "c" })
+
+    expect(station.openStrip).not.toHaveBeenCalled()
+    expect(store.getSnapshot().selected).toBe("c")
+    expect(store.getSnapshot().current?.track.id).toBe("a")
+    expect(store.getSnapshot().status).toEqual({ kind: "idle" })
+  })
+
   test("without Web Audio it fails as unsupported and opens nothing", () => {
     const { store, station } = setup({ support: "unsupported" })
 

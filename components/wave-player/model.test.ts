@@ -7,6 +7,8 @@ import {
   deriveStatus,
   initialIntent,
   planCommand,
+  planEnded,
+  reconcilePlaylist,
   reseedIntent,
   startsAudio,
   wantedLoads,
@@ -347,6 +349,60 @@ describe("seek", () => {
       kind: "seek",
       to: 9000,
     })
+  })
+})
+
+describe("selection", () => {
+  for (const mode of MODES)
+    test.each(STATUSES)(
+      `select-track selects and plays nothing while %s, repeat ${mode.repeat}, shuffle ${mode.shuffle}`,
+      (status) => {
+        const intent = on("b", mode)
+        const plan = planCommand({ type: "select-track", id: "c" }, at(intent, { status }))
+
+        expect(plan.effect).toEqual(none)
+        expect(plan.intent.queue).toBe(intent.queue)
+        expect(plan.intent.selected).toBe("c")
+      }
+    )
+
+  test("select-track null clears it, and an unknown id changes nothing", () => {
+    const intent = after([{ type: "select-track", id: "c" }])
+
+    expect(planCommand({ type: "select-track", id: null }, at(intent)).intent.selected).toBeNull()
+    expect(planCommand({ type: "select-track", id: "zz" }, at(intent))).toEqual({ intent, effect: none })
+  })
+
+  test("play-track selects the row it plays, current or not", () => {
+    const intent = after([{ type: "select-track", id: "c" }])
+
+    expect(planCommand({ type: "play-track", id: "b" }, at(intent)).intent.selected).toBe("b")
+    expect(planCommand({ type: "play-track", id: "a" }, at(intent)).intent.selected).toBe("a")
+  })
+
+  test("Next, Previous, and the end of a track leave the selection where it was", () => {
+    const intent = after([
+      { type: "play-track", id: "b" },
+      { type: "select-track", id: "a" },
+    ])
+
+    expect(planCommand({ type: "next" }, at(intent)).intent.selected).toBe("a")
+    expect(planCommand({ type: "previous" }, at(intent)).intent.selected).toBe("a")
+    expect(planEnded({ playlist, intent }).intent.selected).toBe("a")
+  })
+
+  test("the selection clears when the list drops its track, and stays otherwise", () => {
+    const intent = after([{ type: "select-track", id: "c" }])
+
+    expect(reconcilePlaylist(intent, parsePlaylist(TRACKS.slice(0, 2)).playlist).selected).toBeNull()
+    expect(reconcilePlaylist(intent, parsePlaylist([...TRACKS].reverse()).playlist).selected).toBe("c")
+  })
+
+  test("the snapshot shows the selection apart from the current track", () => {
+    const state = deriveState({ ...inputs({ current: "b" }), intent: planCommand({ type: "select-track", id: "c" }, at(on("b"))).intent }, null)
+
+    expect(state.selected).toBe("c")
+    expect(state.current?.track.id).toBe("b")
   })
 })
 

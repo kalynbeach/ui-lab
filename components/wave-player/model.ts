@@ -8,8 +8,8 @@
  *
  *   intent     the store, only through a Plan from planCommand() or planEnded(),
  *              or reconcilePlaylist() when the list changes. It holds the
- *              queue and the settings. The current track's index is looked
- *              up from the queue, never stored.
+ *              queue, the settings, and the selected row. The current
+ *              track's index is looked up from the queue, never stored.
  *   playback   the strip. Its SourceStatus describes the current track.
  *   station    kevelle/audio's context state
  *   durations  the site (Track.duration), the playing element (heard), and
@@ -179,6 +179,8 @@ export type PlayerState = {
   readonly settings: Settings
   /** Next has a track to play: peekNext() is not null. */
   readonly canNext: boolean
+  /** The Playlist's selected row. Never the same thing as current: selecting plays nothing, and playback never moves it. */
+  readonly selected: TrackId | null
 }
 
 /** Everything deriveState() reads. The store assembles it; the states workbench builds it by hand. */
@@ -254,6 +256,7 @@ export function deriveState(
   )
 
   const settings = inputs.intent.settings
+  const selected = inputs.intent.selected
   const canNext = peekNext(inputs.playlist, inputs.intent) !== null
 
   if (
@@ -266,7 +269,8 @@ export function deriveState(
     previous.active === active &&
     previous.look === look &&
     previous.settings === settings &&
-    previous.canNext === canNext
+    previous.canNext === canNext &&
+    previous.selected === selected
   )
     return previous
 
@@ -280,6 +284,7 @@ export function deriveState(
     look,
     settings,
     canNext,
+    selected,
   }
 }
 
@@ -417,10 +422,11 @@ function failReason(error: SourceError): FailReason {
   return error.kind === "station-not-running" ? "audio" : "load"
 }
 
-/** What the listener asked for: where the queue stands and the settings. The store's one copy. */
+/** What the listener asked for: where the queue stands, the settings, and the selected row. The store's one copy. */
 export type Intent = {
   readonly queue: Queue
   readonly settings: Settings
+  readonly selected: TrackId | null
 }
 
 /** The first track current and idle, default settings, and a fixed seed until the store draws one. */
@@ -428,6 +434,7 @@ export function initialIntent(playlist: Playlist): Intent {
   return {
     queue: createQueue(order(playlist), DEFAULT_SETTINGS.shuffle, 0),
     settings: DEFAULT_SETTINGS,
+    selected: null,
   }
 }
 
@@ -438,12 +445,17 @@ export function reseedIntent(intent: Intent, seed: number): Intent {
 
 /**
  * The intent after the list changed: the queue keeps only listed tracks
- * (see reconcile() in queue.ts). Settings never change.
+ * (see reconcile() in queue.ts), and a selection the list dropped clears.
+ * Settings never change.
  */
 export function reconcilePlaylist(intent: Intent, playlist: Playlist): Intent {
   return {
     ...intent,
     queue: reconcile(intent.queue, order(playlist), intent.settings.shuffle),
+    selected:
+      intent.selected !== null && playlist.indexOf.has(intent.selected)
+        ? intent.selected
+        : null,
   }
 }
 
@@ -479,8 +491,10 @@ export type PlayerCommand =
   | { readonly type: "pause" }
   | { readonly type: "next" }
   | { readonly type: "previous" }
-  /** A Playlist row's play action. An unknown id does nothing. */
+  /** A Playlist row's play action. It also selects the row. An unknown id does nothing. */
   | { readonly type: "play-track"; readonly id: string }
+  /** A Playlist row's selection, or null for none. It never plays. An unknown id does nothing. */
+  | { readonly type: "select-track"; readonly id: string | null }
   /** Seconds. The plan clamps it into the track. */
   | { readonly type: "seek"; readonly to: number }
   /** 0 to 1, clamped. Any level above 0 unmutes. */
@@ -574,6 +588,7 @@ const CURRENT_ROW = {
  *   play-track  another track loads it and starts a new round after it; the
  *               current one follows CURRENT_ROW
  *   seek        clamped into [0, duration], while the status allows seeking
+ *   select-track  selects a row and nothing else, even while playing
  *   set-*       change the setting and nothing else, even with no tracks.
  *               Shuffle rebuilds the round after current.
  *
@@ -612,6 +627,14 @@ export function planCommand(command: PlayerCommand, at: Situation): Plan {
       return configure(intent, { repeat: command.repeat })
     case "set-time":
       return configure(intent, { time: command.time })
+    case "select-track": {
+      if (command.id === null) return { intent: select(intent, null), effect: NONE }
+
+      const id = find(at.playlist, command.id)
+
+      return id === null ? stay(NONE) : { intent: select(intent, id), effect: NONE }
+    }
+
     default:
       return intent.queue.kind === "empty"
         ? stay(NONE)
@@ -619,7 +642,10 @@ export function planCommand(command: PlayerCommand, at: Situation): Plan {
   }
 }
 
-type Transport = Exclude<PlayerCommand, { readonly type: `set-${string}` }>
+type Transport = Exclude<
+  PlayerCommand,
+  { readonly type: `set-${string}` | "select-track" }
+>
 
 function planTransport(
   command: Transport,
@@ -677,15 +703,16 @@ function planTransport(
     }
 
     case "play-track": {
-      const id = order(at.playlist).find((known) => known === command.id)
+      const id = find(at.playlist, command.id)
 
-      if (id === undefined) return stay(NONE)
+      if (id === null) return stay(NONE)
 
-      if (id === queue.current) return stay(CURRENT_ROW[at.status])
+      if (id === queue.current)
+        return { intent: select(intent, id), effect: CURRENT_ROW[at.status] }
 
       return {
         intent: {
-          ...intent,
+          ...select(intent, id),
           queue: activate(
             queue,
             id,
@@ -744,6 +771,17 @@ function move(intent: Intent, queue: Queue): Plan {
     intent: { ...intent, queue },
     effect: currentOf(queue) === currentOf(intent.queue) ? RESTART : LOAD,
   }
+}
+
+/** The listed track with this id. Commands carry plain strings; this is where one becomes a TrackId. */
+function find(playlist: Playlist, id: string): TrackId | null {
+  const at = playlist.indexOf.get(id)
+
+  return at === undefined ? null : playlist.tracks[at].id
+}
+
+function select(intent: Intent, id: TrackId | null): Intent {
+  return intent.selected === id ? intent : { ...intent, selected: id }
 }
 
 /** The intent with `change` applied, or the same intent when nothing differs. */
