@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import * as React from "react"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 
 import { AddFiles } from "@/app/wave-player/add-files"
@@ -220,4 +221,30 @@ test.each([
   await userEvent.click(screen.getByRole("button", { name: "Play" }))
   expect(player.store.getSnapshot().status.kind).toBe("loading")
   expect(agent.snapshot().some((entry) => entry.label === "Play")).toBe(true)
+})
+
+test("WebMCP tools leave with the player, and a strict remount leaves one set", async () => {
+  const live = new Map<string, number>()
+  // A host that drops a tool when its registration's signal aborts, as WebMCP does.
+  Object.assign(document, {
+    modelContext: {
+      registerTool: async (tool: Tool, options?: { signal?: AbortSignal }) => {
+        live.set(tool.name, (live.get(tool.name) ?? 0) + 1)
+        options?.signal?.addEventListener("abort", () => live.set(tool.name, live.get(tool.name)! - 1))
+      },
+    },
+  })
+
+  const view = render(
+    <React.StrictMode>
+      <WavePlayerAgent />
+    </React.StrictMode>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  expect(Object.fromEntries(live)).toEqual({ snapshot: 1, act: 1, query: 1 })
+
+  view.unmount()
+  expect(Object.fromEntries(live)).toEqual({ snapshot: 0, act: 0, query: 0 })
 })
