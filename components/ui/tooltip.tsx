@@ -21,6 +21,11 @@ function Tooltip(props: React.ComponentProps<typeof TooltipRoot>) {
   return <TooltipRoot {...props} />
 }
 
+// The content stays in the page while closed, and ui-sdk hides it with the
+// hidden attribute. A press that lands before React has rendered the tooltip
+// open closes it without that attribute coming back. inline-flex would then
+// draw the closed tooltip over its neighbors, so a popover that is not open
+// is never displayed.
 function TooltipContent({
   className,
   side = "top",
@@ -35,7 +40,7 @@ function TooltipContent({
       side={side}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 bg-foreground px-3 py-1.5 text-xs text-background transition-[opacity,scale] duration-(--duration-small) ease-out has-data-[slot=kbd]:pr-1.5 has-data-[slot=tooltip-shortcut]:pr-1.5 data-instant:duration-0 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
+        "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) [&[popover]:not(:popover-open)]:hidden items-center gap-1.5 bg-foreground px-3 py-1.5 text-xs text-background transition-[opacity,scale] duration-(--duration-small) ease-out has-data-[slot=kbd]:pr-1.5 has-data-[slot=tooltip-shortcut]:pr-1.5 data-instant:duration-0 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
         className
       )}
       {...props}
