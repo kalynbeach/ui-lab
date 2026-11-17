@@ -44,6 +44,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Contrast
+        run: bun run contrast
+
       - name: Test
         run: bun run test
 
