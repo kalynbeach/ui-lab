@@ -42,9 +42,14 @@ export type WavePlayerTrack = {
   readonly look?: WavePlayerLook | null
 }
 
+declare const trackId: unique symbol
+
+/** A track id that a checked playlist issued. Only parsePlaylist() makes one. */
+export type TrackId = string & { readonly [trackId]: true }
+
 /** A checked track. Optional fields are null, never undefined. */
 export type Track = {
-  readonly id: string
+  readonly id: TrackId
   readonly title: string
   readonly src: string
   readonly artist: string | null
@@ -93,9 +98,10 @@ export function parsePlaylist(
   const issues: PlaylistIssue[] = []
 
   input.forEach((record, at) => {
-    const id = record.id.trim()
-    const title = record.title.trim()
-    const src = record.src.trim()
+    // SAFETY: a checked id is a TrackId; the checks below drop every other record.
+    const id = text(record.id) as TrackId
+    const title = text(record.title)
+    const src = text(record.src)
 
     const missing =
       id === "" ? "id" : title === "" ? "title" : src === "" ? "src" : null
@@ -143,9 +149,9 @@ export function parsePlaylist(
       id,
       title,
       src,
-      artist: record.artist?.trim() || null,
-      record: record.record?.trim() || null,
-      tag: record.tag?.trim() || null,
+      artist: text(record.artist) || null,
+      record: text(record.record) || null,
+      tag: text(record.tag) || null,
       duration,
       peaks,
       look,
@@ -156,4 +162,9 @@ export function parsePlaylist(
     playlist: { tracks, indexOf, key: JSON.stringify(tracks) },
     issues,
   }
+}
+
+/** Trimmed text, or "" for anything that is not a string. Stored or fetched JSON can hold any value whatever the type says. */
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
 }

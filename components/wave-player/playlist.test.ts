@@ -75,9 +75,12 @@ describe("parsePlaylist", () => {
   })
 
   // Stored or fetched JSON can miss a required field whatever the type says.
-  test.fails("never throws on a record missing a required field", () => {
+  test("never throws on a record missing a required field", () => {
     const record = { title: "No id", src: "/x.mp3" } as unknown as WavePlayerTrack
 
-    expect(() => parsePlaylist([record])).not.toThrow()
+    expect(parsePlaylist([record])).toEqual({
+      playlist: { tracks: [], indexOf: new Map(), key: "[]" },
+      issues: [{ kind: "missing-field", at: 0, field: "id" }],
+    })
   })
 })
