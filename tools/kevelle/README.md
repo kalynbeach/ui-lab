@@ -8,7 +8,7 @@
 | `screen` | `lib/screen/` | pinned |
 | `scope` | `lib/scope/` | pinned |
 | `waveform` | `components/waveform/` (5 of its files) | pinned |
-| `wave-player` | `components/wave-player/` (13 core `.ts` files) | seed |
+| `wave-player` | `components/wave-player/` (12 core `.ts` files) | seed |
 | `marquee` | `components/ui/marquee.tsx` | pinned |
 
 `manifest.json` records every file the script wrote, with its registry path and the SHA-256 of what it wrote.

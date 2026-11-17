@@ -178,7 +178,7 @@ describe("click to play", () => {
     expect(store.getSnapshot().active).toBe(true)
   })
 
-  test("a Library row plays its own track inside send()", () => {
+  test("a Playlist row plays its own track inside send()", () => {
     const { store, strips } = setup()
 
     store.send({ type: "play-track", id: "c" })

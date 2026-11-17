@@ -10,13 +10,6 @@
     },
     {
       "item": "wave-player",
-      "source": "registry/kevelle/blocks/wave-player/dock.ts",
-      "target": "components/wave-player/dock.ts",
-      "sha256": "155de78335629c9a06d7955d6af6ccefdc38dbf2df1fdf1710f04057dc0b2577",
-      "seed": true
-    },
-    {
-      "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/format.ts",
       "target": "components/wave-player/format.ts",
       "sha256": "ce7b893500016c1619a6c75dceee4ec2233bc656e474b0d42bc05ac051030009",

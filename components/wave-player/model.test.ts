@@ -478,7 +478,7 @@ describe("deriveState", () => {
 describe("wantedLoads", () => {
   const all = { durations: true, current: true, peaks: true }
 
-  test("probes the idle current track first, then the Library's other tracks", () => {
+  test("probes the idle current track first, then the Playlist's other tracks", () => {
     const state = deriveState(inputs({ index: 1 }), null)
 
     expect(wantedLoads(state, all, new Set())).toEqual([

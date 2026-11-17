@@ -51,7 +51,6 @@ export const ITEMS: readonly ItemSpec[] = [
     dir: "components/wave-player",
     seed: true,
     only: [
-      "dock.ts",
       "format.ts",
       "keys.ts",
       "loaders.ts",
