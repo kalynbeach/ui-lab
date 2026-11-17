@@ -1,8 +1,9 @@
 /*
  * The WavePlayer store: one per provider, and nothing in it knows React.
  *
- * It owns the block's one strip, the intent (queue and settings), the file handle, the
- * position samples, Media Session, and the duration and peaks caches. Views
+ * It owns the block's one strip, the intent (queue, settings, selection),
+ * the file handle, the position samples, Media Session, a person's files,
+ * the saved settings, and the duration and peaks caches. Views
  * read subscribe() and getSnapshot(), and the playhead for position. Every
  * change of intent goes through send().
  *
@@ -78,6 +79,13 @@ import {
   type WavePlayerTrack,
 } from "./playlist"
 import { currentOf } from "./queue"
+import {
+  localSettings,
+  parseSettings,
+  serializeSettings,
+  type Settings,
+  type SettingsStorage,
+} from "./settings"
 import { FAILURE, STATUS_VIEW } from "./status-view"
 
 /** The strip's gain at level 1. Mastered music peaks near 1, and 0.5 keeps it in the master soft clip's linear range. */
@@ -122,6 +130,15 @@ export type PlayerStore = {
    * as the store.
    */
   readonly addFiles: (files: readonly File[]) => AddedFiles
+  /**
+   * Applies the saved settings, through the same commands a click sends,
+   * and starts saving. Call it once after hydration: the store builds from
+   * the defaults so the server and the client render alike, and it writes
+   * nothing before this runs, so the defaults never overwrite a save. A
+   * setting someone changed before it runs keeps their value. Later calls do
+   * nothing.
+   */
+  readonly restoreSettings: () => void
   /** A mounted view's need, held until the returned release runs. Loads run only while someone needs them. */
   readonly retain: (need: Need) => () => void
   /**
@@ -156,9 +173,12 @@ export type PlayerEnv = {
   readonly report: (issues: readonly PlaylistIssue[]) => void
   /** A 32-bit seed for shuffle. Drawn once, at the first command, never during render. */
   readonly seed: () => number
+  /** Where settings persist, or null to keep them for the page's life only. */
+  readonly settings: SettingsStorage | null
 }
 
-export function browserEnv(): PlayerEnv {
+/** The browser's globals. With `settingsKey`, settings persist in localStorage under it. */
+export function browserEnv(settingsKey?: string): PlayerEnv {
   return {
     station: getAudioStation,
     support: detectAudioSupport,
@@ -180,6 +200,7 @@ export function browserEnv(): PlayerEnv {
     report: (issues) =>
       console.warn("WavePlayer dropped track data it could not use.", issues),
     seed: () => Math.floor(Math.random() * 2 ** 32),
+    settings: settingsKey === undefined ? null : localSettings(settingsKey),
   }
 }
 
@@ -210,6 +231,12 @@ export function createPlayerStore(
   let intent: Intent = initialIntent(playlist)
   /** The intent's seed came from env.seed(). The first command draws it. */
   let seeded = false
+  /** restoreSettings() ran, so commit() saves. */
+  let restored = false
+  /** Settings someone changed before the restore ran. */
+  const touched = new Set<keyof Settings>()
+  /** The text last read or written, so an unchanged setting writes nothing. */
+  let saved: string | null = null
   /** Open from the first sounding gesture until release(). */
   let audio: OpenAudio | null = null
   let nowPlaying: NowPlaying | null = null
@@ -266,6 +293,7 @@ export function createPlayerStore(
 
   function commit(): void {
     converge()
+    save()
 
     if (scrub && (scrub.id !== currentOf(intent.queue) || scrub.token !== token))
       setScrub(null)
@@ -312,6 +340,17 @@ export function createPlayerStore(
     converge()
 
     return audio
+  }
+
+  function save(): void {
+    if (!restored || !env.settings) return
+
+    const text = serializeSettings(intent.settings)
+
+    if (text === saved) return
+
+    env.settings.write(text)
+    saved = text
   }
 
   function converge(): void {
@@ -373,6 +412,10 @@ export function createPlayerStore(
     })
 
     if (plan.intent === intent && plan.effect.kind === "none") return
+
+    if (!restored)
+      for (const key of Object.keys(plan.intent.settings) as (keyof Settings)[])
+        if (plan.intent.settings[key] !== intent.settings[key]) touched.add(key)
 
     if (startsAudio(plan.effect)) {
       if (env.support() === "unsupported") {
@@ -742,6 +785,32 @@ export function createPlayerStore(
       if (!was || !now || now.id !== was.id || !sameSource(now.source, was.source))
         apply({ kind: "cancel" })
 
+      commit()
+    },
+    restoreSettings() {
+      if (restored) return
+
+      saved = env.settings?.read() ?? null
+
+      const stored = parseSettings(saved)
+
+      if (stored) {
+        const target: Settings = {
+          ...stored,
+          ...Object.fromEntries(
+            [...touched].map((key) => [key, intent.settings[key]])
+          ),
+        }
+
+        // Level first: any level above 0 unmutes, and the saved mute must win.
+        send({ type: "set-level", level: target.level })
+        send({ type: "set-muted", muted: target.muted })
+        send({ type: "set-shuffle", shuffle: target.shuffle })
+        send({ type: "set-repeat", repeat: target.repeat })
+        send({ type: "set-time", time: target.time })
+      }
+
+      restored = true
       commit()
     },
     addFiles(input) {

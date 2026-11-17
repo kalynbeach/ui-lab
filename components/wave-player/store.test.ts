@@ -109,12 +109,22 @@ function setup({
   connectOnPlay = true,
   support = "supported",
   mediaSession = null,
+  stored = null,
 }: {
   tracks?: readonly WavePlayerTrack[]
   connectOnPlay?: boolean
   support?: "supported" | "unsupported"
   mediaSession?: MediaSession | null
+  stored?: string | null
 } = {}) {
+  const storage = {
+    text: stored,
+    read: vi.fn(() => storage.text),
+    write: vi.fn((text: string) => {
+      storage.text = text
+    }),
+  }
+
   const log: string[] = []
   const strips: FakeStrip[] = []
   const stationListeners = new Set<() => void>()
@@ -153,6 +163,7 @@ function setup({
     setTimer: () => () => {},
     report: vi.fn(),
     seed: vi.fn(() => 7),
+    settings: storage,
   }
 
   const store = createPlayerStore(tracks, env)
@@ -160,7 +171,7 @@ function setup({
     for (const listener of [...stationListeners]) listener()
   }
 
-  return { store, station, strips, log, stationNotify, env }
+  return { store, station, strips, log, stationNotify, env, storage }
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -373,6 +384,91 @@ describe("output", () => {
 
     expect(strips[0].plays[2].spec).toMatchObject({ loop: true })
     expect(third.setLoop).toHaveBeenLastCalledWith(false)
+  })
+})
+
+describe("saved settings", () => {
+  const SAVED = JSON.stringify({ version: 1, level: 0.3, muted: true, shuffle: true, repeat: "one", time: "remaining" })
+
+  test("restore applies the save through commands, plays nothing, and the next play uses it", () => {
+    const { store, station, strips, log } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings).toEqual({
+      level: 0.3,
+      muted: true,
+      shuffle: true,
+      repeat: "one",
+      time: "remaining",
+    })
+    expect(station.openStrip).not.toHaveBeenCalled()
+
+    store.send({ type: "toggle" })
+
+    expect(log).toEqual(["level 0.3", "monitor off", "start", "play"])
+    expect(strips[0].plays[0].spec).toMatchObject({ loop: true })
+  })
+
+  test("the defaults never overwrite a save: nothing is written before restore, or by it", () => {
+    const { store, storage } = setup({ stored: SAVED })
+
+    store.retain("durations")
+    store.send({ type: "toggle" })
+    store.send({ type: "next" })
+    expect(storage.write).not.toHaveBeenCalled()
+
+    store.restoreSettings()
+    expect(storage.write).not.toHaveBeenCalled()
+    expect(storage.text).toBe(SAVED)
+
+    store.send({ type: "set-time", time: "elapsed" })
+    expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, time: "elapsed", level: 0.3 })
+  })
+
+  test("a setting changed before restore keeps its value, and the rest come from the save", () => {
+    const { store } = setup({ stored: SAVED })
+
+    store.send({ type: "set-repeat", repeat: "all" })
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings).toMatchObject({ repeat: "all", shuffle: true, level: 0.3 })
+  })
+
+  test("a mute set before restore survives the saved level, which would unmute", () => {
+    const { store } = setup({
+      stored: JSON.stringify({ version: 1, level: 0.5, muted: false, shuffle: false, repeat: "off", time: "elapsed" }),
+    })
+
+    store.send({ type: "set-muted", muted: true })
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings).toMatchObject({ level: 0.5, muted: true })
+  })
+
+  test.each([null, "not json", "{\"version\":9,\"level\":0.1}", "[]"])(
+    "stored %s leaves the defaults, and saving starts",
+    (stored) => {
+      const { store, storage } = setup({ stored })
+
+      expect(() => store.restoreSettings()).not.toThrow()
+      expect(store.getSnapshot().settings.level).toBe(1)
+
+      store.send({ type: "set-level", level: 0.7 })
+
+      expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, level: 0.7 })
+    }
+  )
+
+  test("a second restore does nothing", () => {
+    const { store, storage } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+    store.send({ type: "set-level", level: 0.9 })
+    storage.text = SAVED
+    store.restoreSettings()
+
+    expect(store.getSnapshot().settings.level).toBe(0.9)
   })
 })
 
