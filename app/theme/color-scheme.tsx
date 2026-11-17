@@ -29,10 +29,11 @@ function isScheme(value: string | null): value is ColorSchemeValue {
 }
 
 // The Kevelle waveform engine reads a dark or light class on <html>, not data-color-scheme.
-function mirrorClass({ value }: ColorSchemeState) {
+// It needs the scheme that shows, so System mirrors what the system resolved to.
+function mirrorClass({ resolved }: ColorSchemeState) {
   const classes = document.documentElement.classList
-  classes.toggle("dark", value === "dark")
-  classes.toggle("light", value === "light")
+  classes.toggle("dark", resolved === "dark")
+  classes.toggle("light", resolved === "light")
 }
 
 function ColorSchemePreferences({ children }: { children: React.ReactNode }) {
@@ -61,7 +62,7 @@ function ColorSchemeControl() {
         <SegmentedControlItem
           key={scheme.value}
           value={scheme.value}
-          className="-ml-px h-7 border border-border bg-secondary px-2 type-label text-secondary-foreground alloy-raised outline-none first:ml-0 data-unchecked:hover:z-10 data-unchecked:hover:border-input data-unchecked:hover:alloy-lit focus-visible:z-20 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring data-checked:z-10 data-checked:alloy-selected"
+          className="-ml-px h-7 border border-border bg-secondary px-2 type-label text-secondary-foreground alloy-raised first:ml-0 focus-visible:outline-hidden data-unchecked:hover:z-10 data-unchecked:hover:border-input data-unchecked:hover:alloy-lit focus-visible:z-20 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring data-checked:z-10 data-checked:alloy-selected"
         >
           {scheme.label}
         </SegmentedControlItem>

@@ -18,7 +18,7 @@ export default function Home() {
           <li key={page.href} className="border-b">
             <Link
               href={page.href}
-              className="flex flex-col gap-1 py-4 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-baseline sm:gap-6 sm:px-2"
+              className="flex flex-col gap-1 py-4 hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-baseline sm:gap-6 sm:px-2"
             >
               <span className="type-label sm:w-32">{page.title}</span>
               <span className="type-body text-muted-foreground">

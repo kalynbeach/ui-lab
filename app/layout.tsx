@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-6">
             <Link
               href="/"
-              className="type-wordmark outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="type-wordmark focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               ui-lab
             </Link>

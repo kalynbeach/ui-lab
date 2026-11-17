@@ -3,7 +3,7 @@
 // A held press is also hovered, so the pressed preview takes the hover fill.
 
 const key =
-  "inline-flex h-8 items-center justify-center gap-1.5 border px-2.5 text-sm font-medium whitespace-nowrap alloy-raised transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[preview=pressed]:[--tw-inset-shadow:var(--alloy-shade),var(--alloy-sill)] data-[preview=pressed]:[--tw-shadow:0_0_#0000] data-[preview=focus]:border-ring data-[preview=focus]:ring-2 data-[preview=focus]:ring-ring"
+  "inline-flex h-8 items-center justify-center gap-1.5 border px-2.5 text-sm font-medium whitespace-nowrap alloy-raised transition-all select-none focus-visible:outline-hidden data-[preview=focus]:outline-hidden focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[preview=pressed]:[--tw-inset-shadow:var(--alloy-shade),var(--alloy-sill)] data-[preview=pressed]:[--tw-shadow:0_0_#0000] data-[preview=focus]:border-ring data-[preview=focus]:ring-2 data-[preview=focus]:ring-ring"
 
 const button = `${key} active:not-aria-[haspopup]:translate-y-px data-[preview=pressed]:translate-y-px`
 
