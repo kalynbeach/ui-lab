@@ -19,7 +19,7 @@ const markup = (items: readonly PlaylistItem[] = ITEMS) =>
   `<root aria-label="Playlist">${items
     .map(
       ({ value, label }, index) =>
-        `<row value="${value}"><track>${String(index + 1).padStart(2, "0")} ${label}</track><play-cell><play label="${label}"></play></play-cell></row>`
+        `<row value="${value}" index="${index}"><track>${String(index + 1).padStart(2, "0")} ${label}</track><play-cell><play label="${label}"></play></play-cell></row>`
     )
     .join("")}</root>`
 
@@ -272,5 +272,50 @@ describe("rendering", () => {
 
   test("Left and Right swap in right-to-left text", async () => {
     await checkDirection(playlistGrid, { items: ITEMS }, markup())
+  })
+})
+
+describe("Space and typing, everywhere in the grid", () => {
+  test("Space right after a title search is still left to the player", async () => {
+    const { view, focusedTitle, track } = setup()
+    try {
+      await view.keys("Tab")
+      await view.type("a")
+      expect(focusedTitle()).toBe("Afterimage")
+      const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true })
+      track(TITLES.indexOf("Afterimage")).dispatchEvent(space)
+      expect(space.defaultPrevented).toBe(false)
+    } finally {
+      view.unmount()
+    }
+  })
+
+  test("typing in the Play column finds the row and stays in that column", async () => {
+    const { view, onPlay, onSelectedChange, play } = setup()
+    try {
+      await view.keys("Tab", "ArrowRight")
+      expect(document.activeElement).toBe(play(0))
+      await view.type("n")
+      expect(document.activeElement).toBe(play(TITLES.indexOf("Night transit")))
+      expect(onPlay).not.toHaveBeenCalled()
+      expect(onSelectedChange).not.toHaveBeenCalled()
+    } finally {
+      view.unmount()
+    }
+  })
+})
+
+describe("a hidden row that is selected", () => {
+  test("shows as selected and takes the tab stop, while the selected value stays empty", () => {
+    const items = ITEMS.map((item, index) => (index === 2 ? { ...item, hidden: true, chosen: true } : item))
+    const { view, row, track, tabbable } = setup({ items, selected: null })
+    try {
+      expect(view.state.selected).toBeNull()
+      expect(row(2).getAttribute("aria-selected")).toBe("true")
+      expect(row(0).getAttribute("aria-selected")).toBe("false")
+      expect(tabbable()).toEqual([track(2)])
+    } finally {
+      view.unmount()
+    }
   })
 })

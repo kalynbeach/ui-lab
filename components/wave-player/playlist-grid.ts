@@ -1,5 +1,6 @@
 import {
   createChange,
+  createFocusRecovery,
   createRovingFocus,
   createTypeahead,
   definePrimitive,
@@ -16,7 +17,18 @@ export type PlaylistItem = {
   // A person's own file. Agents never see or reach it. data-agent-hidden on
   // its row would hide the whole Playlist from agents, not the one row.
   readonly hidden?: boolean
+  // A hidden row that is selected. Agents read `selected`, so the host passes
+  // null there for a hidden row and marks the row here instead.
+  readonly chosen?: boolean
 }
+
+type Chosen = {
+  readonly selected: TrackId | null
+  readonly items: readonly PlaylistItem[]
+}
+
+const chosenOf = (state: Chosen) =>
+  state.selected ?? state.items.find((item) => item.chosen)?.value ?? null
 
 export type PlaylistSelectReason = "item-press" | "imperative"
 
@@ -72,13 +84,32 @@ export const playlistGrid = definePrimitive({
     const roving = createRovingFocus(context, {
       slot: "track",
       key: "focused",
-      preferred: (cell) => cell.key === context.store.get().selected,
-      claims: (state, cell) =>
-        !state.items.some((item) => item.value === state.selected) ||
-        cell.key === state.selected,
+      preferred: (cell) => cell.key === chosenOf(context.store.get()),
+      claims: (state, cell) => {
+        const chosen = chosenOf(state)
+
+        return !state.items.some((item) => item.value === chosen) || cell.key === chosen
+      },
     })
     const typeahead = createTypeahead()
     const plays = new Map<string, HTMLElement>()
+    // The row that takes a removed row's place, or the last row when the end left.
+    const successor = (index: number | undefined) => {
+      const cells = roving.items()
+
+      return cells[index ?? 0] ?? cells.at(-1)
+    }
+    const trackRecovery = createFocusRecovery<{ index?: number }>({
+      fallback: (lost) => successor(lost.props.index)?.el,
+    })
+    const playRecovery = createFocusRecovery<{ index?: number }>({
+      fallback: (lost) => {
+        const cell = successor(lost.props.index)
+
+        return cell && (plays.get(cell.key) ?? cell.el)
+      },
+    })
+    const labels = () => roving.items().map((cell) => byKey(cell.key)?.label ?? "")
 
     const byKey = (key: string) => items().find((item) => item.value === key)
     const byName = (name: string) =>
@@ -104,6 +135,8 @@ export const playlistGrid = definePrimitive({
 
     return {
       roving,
+      trackRecovery,
+      playRecovery,
       agentItems: () =>
         items()
           .filter((item) => !item.hidden)
@@ -135,12 +168,12 @@ export const playlistGrid = definePrimitive({
           choose(byKey(key), event)
           return
         }
-        if (event.key === " " && typeahead.active()) event.preventDefault()
-        if (!isTypeaheadKey(event)) return
+        // Space belongs to the player around the grid, even mid search.
+        if (event.key === " " || !isTypeaheadKey(event)) return
         const cells = roving.items()
         const index = typeahead(
           event.key,
-          cells.map((cell) => byKey(cell.key)?.label ?? ""),
+          labels(),
           cells.findIndex((cell) => cell.el === el)
         )
         if (index !== -1) roving.focus(cells[index].key)
@@ -152,11 +185,15 @@ export const playlistGrid = definePrimitive({
           roving.focus(key)
           return
         }
-        const move = PLAY_MOVES[event.key]
-        if (!move) return
-        event.preventDefault()
         const keys = roving.items().map((cell) => cell.key)
-        const to = keys[move(keys.indexOf(key), keys.length - 1)]
+        const move = PLAY_MOVES[event.key]
+        let to: string | undefined
+        if (move) {
+          event.preventDefault()
+          to = keys[move(keys.indexOf(key), keys.length - 1)]
+        } else if (event.key !== " " && isTypeaheadKey(event)) {
+          to = keys[typeahead(event.key, labels(), keys.indexOf(key))]
+        }
         if (to === undefined) return
         // The row's track cell keeps the tab stop, so Tab back in lands on this row.
         roving.remember(to)
@@ -169,11 +206,11 @@ export const playlistGrid = definePrimitive({
       role: "grid",
       keys: { none: "Each track cell and Play button handles its own keys." },
     }),
-    row: slot<{ value: string }>({
-      props: { value: "string" },
+    row: slot<{ value: string; index?: number }>({
+      props: { value: "string", index: "number" },
       role: "row",
       attrs: (state, part) => {
-        const selected = state.selected === part.key
+        const selected = chosenOf(state) === part.key
         const current = state.current === part.key
         return {
           "aria-selected": String(selected),
@@ -184,8 +221,11 @@ export const playlistGrid = definePrimitive({
         }
       },
     }),
-    track: slot<{ value?: string }>({
-      props: { value: { kind: "string", from: "row", required: true } },
+    track: slot<{ value?: string; index?: number }>({
+      props: {
+        value: { kind: "string", from: "row", required: true },
+        index: { kind: "number", from: "row" },
+      },
       role: "gridcell",
       focus: "roving",
       keys: [
@@ -209,16 +249,25 @@ export const playlistGrid = definePrimitive({
           if (el) api.trackKeydown(event, el, key)
         },
       },
-      bind: (el, part) => part.api.roving.bind(el, part),
+      bind: (el, part) => {
+        const unbindFocus = part.api.roving.bind(el, part)
+        const unbindRecovery = part.api.trackRecovery.bind(el, part)
+
+        return () => {
+          unbindFocus()
+          unbindRecovery()
+        }
+      },
     }),
     "play-cell": slot<{ value?: string }>({
       props: { value: { kind: "string", from: "row", required: true } },
       role: "gridcell",
       focus: { none: "The Play button inside it takes focus." },
     }),
-    play: slot<{ value?: string; label?: string }>({
+    play: slot<{ value?: string; index?: number; label?: string }>({
       props: {
         value: { kind: "string", from: "row", required: true },
+        index: { kind: "number", from: "row" },
         label: "string",
       },
       role: "button",
@@ -236,7 +285,15 @@ export const playlistGrid = definePrimitive({
           if (el) api.playKeydown(event, el, key)
         },
       },
-      bind: (el, part) => part.api.bindPlay(el, part.key),
+      bind: (el, part) => {
+        const unbindPlay = part.api.bindPlay(el, part.key)
+        const unbindRecovery = part.api.playRecovery.bind(el, part)
+
+        return () => {
+          unbindPlay()
+          unbindRecovery()
+        }
+      },
     }),
   }),
   agent: {

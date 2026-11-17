@@ -42,9 +42,12 @@ export function WavePlayerPlaylist({
         value: track.id,
         label: track.title,
         hidden: track.source === "file",
+        chosen: track.source === "file" && track.id === selected,
       })),
-    [tracks]
+    [tracks, selected]
   )
+  // Agents read the Playlist's selected value, so a person's file never appears there.
+  const visibleSelected = items.some((item) => item.chosen) ? null : selected
 
   return (
     <div className={cn("flex w-full flex-col", className)}>
@@ -67,7 +70,7 @@ export function WavePlayerPlaylist({
         <PlaylistGrid.Root
           aria-labelledby={headingId}
           items={items}
-          selected={selected}
+          selected={visibleSelected}
           current={current}
           playing={playing}
           onSelectedChange={(id) => store.send({ type: "select-track", id })}
@@ -78,6 +81,7 @@ export function WavePlayerPlaylist({
             <PlaylistGrid.Row
               key={track.id}
               value={track.id}
+              index={index}
               className={cn(
                 "group/row relative grid grid-cols-[minmax(0,1fr)_auto] items-center border-b border-border",
                 "transition-[background-color] hover:bg-muted/60",

@@ -282,3 +282,59 @@ describe("WavePlayerPlaylist", () => {
     expect(plays).toEqual(["/c.mp3"])
   })
 })
+
+describe("WavePlayerPlaylist, after review", () => {
+  test("a selected file shows as selected to a person and never in what agents read", async () => {
+    const { store, row } = setup()
+
+    act(() => {
+      store.addFiles([new File(["x"], "mine.mp3", { type: "audio/mpeg" })])
+    })
+
+    expect(store.getSnapshot().selected).toBe("file:0")
+    expect(row("mine").getAttribute("aria-selected")).toBe("true")
+
+    const playlist = agent.snapshot().find((entry) => !entry.offPage && entry.label === "Playlist")
+    expect(JSON.stringify(playlist)).not.toContain("file:0")
+    expect(JSON.stringify(await agent.query({ within: "Playlist", text: "mine" }))).not.toContain("file:0")
+  })
+
+  test("removing the focused row moves focus to the row that takes its place", async () => {
+    const { store, user, cell } = setup()
+
+    await user.tab()
+    await user.keyboard("{ArrowDown}")
+    expect(document.activeElement).toBe(cell("Undertow"))
+
+    act(() => store.setTracks(TRACKS.filter((track) => track.id !== "b")))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+    expect(document.activeElement).toBe(cell("Afterimage"))
+  })
+
+  test("removing the row whose Play holds focus moves focus to the next row's Play", async () => {
+    const { store, user, playButton } = setup()
+
+    await user.tab()
+    await user.keyboard("{ArrowDown}{ArrowRight}")
+    expect(document.activeElement).toBe(playButton("Undertow"))
+
+    act(() => store.setTracks(TRACKS.filter((track) => track.id !== "b")))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+    expect(document.activeElement).toBe(playButton("Afterimage"))
+  })
+
+  test("removing the last row moves focus to the row before it", async () => {
+    const { store, user, cell } = setup()
+
+    await user.tab()
+    await user.keyboard("{End}")
+    expect(document.activeElement).toBe(cell("Night transit"))
+
+    act(() => store.setTracks(TRACKS.filter((track) => track.id !== "d")))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+    expect(document.activeElement).toBe(cell("Afterimage"))
+  })
+})
