@@ -93,7 +93,7 @@ function PopoverContent({
       initialFocus={toFocus(initialFocus, "auto")}
       finalFocus={toFocus(finalFocus, "trigger")}
       className={cn(
-        "z-50 flex w-72 origin-(--transform-origin) flex-col gap-2.5 border border-border bg-popover p-2.5 text-sm text-popover-foreground shadow-float transition-[opacity,scale] duration-(--duration-small) ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
+        "z-50 flex w-72 origin-(--transform-origin) flex-col gap-2.5 bg-popover p-2.5 text-sm text-popover-foreground shadow-float aura transition-[opacity,scale] duration-(--duration-small) ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
         className
       )}
       {...props}

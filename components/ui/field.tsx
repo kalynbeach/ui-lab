@@ -13,7 +13,7 @@ function Field({
 }) {
   return (
     <FieldPart
-      className={cn("flex w-full flex-col gap-2 data-invalid:text-destructive", className)}
+      className={cn("group/field flex w-full flex-col gap-2 data-invalid:text-destructive", className)}
       {...props}
     />
   )
@@ -27,7 +27,7 @@ function FieldLabel({
 }) {
   return (
     <FieldLabelPart
-      className={cn("w-fit type-label data-disabled:opacity-50", className)}
+      className={cn("group/field-label flex w-fit items-center gap-2 type-label select-none data-disabled:opacity-50", className)}
       {...props}
     />
   )
