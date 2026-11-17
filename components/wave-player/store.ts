@@ -22,6 +22,9 @@
  *
  * Every input change ends in commit(). Each of its steps converges, so a
  * re-entrant commit (the strip calls back inside strip.play()) is harmless.
+ * Output is one of those steps: commit() sets the strip's level and monitor
+ * and the handle's loop flag to what the settings ask, when they differ from
+ * what it last set, so a setting needs no effect of its own.
  */
 
 import {
@@ -203,6 +206,12 @@ export function createPlayerStore(
   const needs: Record<Need, number> = { durations: 0, current: 0, peaks: 0 }
   let position = toSeconds(0)
   let cancelFrame: (() => void) | null = null
+  /** What converge() last set. Null forgets it: a new strip or handle starts from its own defaults. */
+  const output: {
+    level: number | null
+    monitor: boolean | null
+    loop: boolean | null
+  } = { level: null, monitor: null, loop: null }
 
   const inputs = (): StoreInputs => ({
     playlist,
@@ -225,6 +234,8 @@ export function createPlayerStore(
   }
 
   function commit(): void {
+    converge()
+
     const next = deriveState(inputs(), snapshot)
     const changed = next !== snapshot
 
@@ -246,8 +257,6 @@ export function createPlayerStore(
     const station = env.station()
     const strip = station.openStrip(STRIP_OPTIONS)
 
-    // A new strip starts silent, and this strip exists only to play.
-    strip.setLevel(1)
     seen = strip.getStatus()
 
     const offStrip = strip.subscribe(onAudioChange)
@@ -262,8 +271,34 @@ export function createPlayerStore(
       },
     }
     nowPlaying = createNowPlaying(env.mediaSession(), send)
+    // A new strip starts silent. Set the level and the monitor before
+    // anything plays, so a muted player never sounds.
+    output.level = null
+    output.monitor = null
+    converge()
 
     return audio
+  }
+
+  function converge(): void {
+    const { level, muted, repeat } = intent.settings
+
+    if (audio && output.level !== level) {
+      audio.strip.setLevel(level)
+      output.level = level
+    }
+
+    if (audio && output.monitor !== !muted) {
+      audio.strip.setMonitor(!muted)
+      output.monitor = !muted
+    }
+
+    const loop = repeat === "one"
+
+    if (handle && output.loop !== loop) {
+      handle.setLoop(loop)
+      output.loop = loop
+    }
   }
 
   function currentTrack(): Track | null {
@@ -382,11 +417,16 @@ export function createPlayerStore(
     handle = null
     awaitingPlay = true
     void audio.strip
-      .play({ kind: "file", file: env.resolve(track.src), loop: false })
+      .play({
+        kind: "file",
+        file: env.resolve(track.src),
+        loop: intent.settings.repeat === "one",
+      })
       .then((result) => {
         if (mine !== token || !result.ok) return
 
         handle = result.value
+        output.loop = null
 
         if (pendingSeek !== null) {
           handle.seek(pendingSeek)

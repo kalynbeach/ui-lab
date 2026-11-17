@@ -90,8 +90,12 @@ function fakeStrip(log: string[], connectOnPlay = true): FakeStrip {
     },
     play: play as Strip["play"],
     stop: vi.fn(() => emit({ kind: "none" })),
-    setLevel: vi.fn(),
-    setMonitor: vi.fn(),
+    setLevel: vi.fn((level: number) => {
+      log.push(`level ${level}`)
+    }),
+    setMonitor: vi.fn((on: boolean) => {
+      log.push(`monitor ${on ? "on" : "off"}`)
+    }),
     setNoise: vi.fn(async () => ok(undefined)),
     feed: () => new Promise(() => {}),
     close: vi.fn(),
@@ -171,9 +175,8 @@ describe("click to play", () => {
 
     store.send({ type: "toggle" })
 
-    expect(log).toEqual(["start", "play"])
+    expect(log).toEqual(["level 1", "monitor on", "start", "play"])
     expect(station.openStrip).toHaveBeenCalledOnce()
-    expect(strips[0].setLevel).toHaveBeenCalledWith(1)
     expect(strips[0].plays.map((call) => call.spec)).toEqual([
       { kind: "file", file: new URL("https://site.test/a.mp3"), loop: false },
     ])
@@ -261,6 +264,104 @@ describe("Media Session", () => {
     expect(store.getSnapshot().current?.track.id).toBe("a")
 
     vi.unstubAllGlobals()
+  })
+})
+
+describe("output", () => {
+  test("a muted player opens its strip with the monitor off, before anything plays", () => {
+    const { store, log } = setup()
+
+    store.send({ type: "set-level", level: 0.4 })
+    store.send({ type: "set-muted", muted: true })
+    store.send({ type: "toggle" })
+
+    expect(log).toEqual(["level 0.4", "monitor off", "start", "play"])
+  })
+
+  test("a settings command sets the strip once, and only what changed", () => {
+    const { store, strips } = setup()
+
+    store.send({ type: "toggle" })
+    vi.mocked(strips[0].setLevel).mockClear()
+    vi.mocked(strips[0].setMonitor).mockClear()
+
+    store.send({ type: "set-level", level: 0.3 })
+    store.send({ type: "set-level", level: 0.3 })
+    store.send({ type: "set-muted", muted: true })
+
+    expect(strips[0].setLevel).toHaveBeenCalledTimes(1)
+    expect(strips[0].setLevel).toHaveBeenCalledWith(0.3)
+    expect(strips[0].setMonitor).toHaveBeenCalledTimes(1)
+    expect(strips[0].setMonitor).toHaveBeenCalledWith(false)
+
+    store.send({ type: "set-level", level: 0.5 })
+
+    expect(strips[0].setMonitor).toHaveBeenLastCalledWith(true)
+  })
+
+  test("a strip opened again after release gets the current level and monitor", () => {
+    const { store, strips } = setup()
+
+    store.send({ type: "toggle" })
+    store.send({ type: "set-level", level: 0.6 })
+    store.send({ type: "set-muted", muted: true })
+    store.release()
+    store.send({ type: "toggle" })
+
+    expect(strips[1].setLevel).toHaveBeenCalledWith(0.6)
+    expect(strips[1].setMonitor).toHaveBeenCalledWith(false)
+  })
+
+  test("repeat one plays with loop on, and the handle's loop follows repeat", async () => {
+    const { store, strips } = setup()
+    const handle = fakeHandle("a.mp3")
+
+    store.send({ type: "set-repeat", repeat: "one" })
+    store.send({ type: "toggle" })
+    expect(strips[0].plays[0].spec).toMatchObject({ loop: true })
+
+    strips[0].plays[0].settle(ok(handle))
+    await tick()
+    expect(handle.setLoop).toHaveBeenLastCalledWith(true)
+
+    store.send({ type: "set-repeat", repeat: "all" })
+    expect(handle.setLoop).toHaveBeenLastCalledWith(false)
+    expect(handle.setLoop).toHaveBeenCalledTimes(2)
+  })
+
+  test("a new handle gets the loop flag, even when repeat changed while it loaded", async () => {
+    const { store, strips } = setup()
+    const first = fakeHandle("a.mp3")
+    const second = fakeHandle("b.mp3")
+
+    store.send({ type: "toggle" })
+    strips[0].plays[0].settle(ok(first))
+    await tick()
+    store.send({ type: "next" })
+    store.send({ type: "set-repeat", repeat: "one" })
+    strips[0].plays[1].settle(ok(second))
+    await tick()
+
+    expect(strips[0].plays[1].spec).toMatchObject({ loop: false })
+    expect(second.setLoop).toHaveBeenLastCalledWith(true)
+  })
+
+  test("a handle that loaded looping is set back when repeat left one before it arrived", async () => {
+    const { store, strips } = setup()
+    const third = fakeHandle("c.mp3")
+
+    store.send({ type: "toggle" })
+    strips[0].plays[0].settle(ok(fakeHandle("a.mp3")))
+    await tick()
+    store.send({ type: "next" })
+    store.send({ type: "set-repeat", repeat: "one" })
+    store.send({ type: "next" })
+    store.send({ type: "set-repeat", repeat: "off" })
+    strips[0].plays[2].settle(ok(third))
+    await tick()
+
+    expect(strips[0].plays[2].spec).toMatchObject({ loop: true })
+    expect(third.setLoop).toHaveBeenLastCalledWith(false)
   })
 })
 
