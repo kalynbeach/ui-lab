@@ -95,7 +95,19 @@ function useWidth(ref: React.RefObject<HTMLElement | null>, fallback: number): n
   return width
 }
 
-function useScrub() {
+const LARGE_STEP = 10
+
+// The thumb sits between whole seconds, so the Slider's first step would only
+// snap to the grid. A step moves from the playhead's whole second instead.
+function stepTarget(proposed: number, shown: number, position: number, max: number): number {
+  if (proposed <= 0 || proposed >= max) return proposed
+
+  const delta = proposed - shown
+
+  return Math.floor(position) + Math.sign(delta) * (Math.abs(delta) > 1 ? LARGE_STEP : 1)
+}
+
+function useScrub(shown: number, max: number) {
   const store = usePlayerStore("WavePlayerSeek")
   const scrub = React.useRef<Scrub>(IDLE)
   const [scrubbing, setScrubbing] = React.useState(false)
@@ -136,7 +148,9 @@ function useScrub() {
     const action = ON_CHANGE[details.reason]
     const track = store.getSnapshot().current?.track.id ?? null
 
-    if (action === "seek") store.send({ type: "seek", to: value })
+    if (details.reason === "step-key")
+      store.send({ type: "seek", to: stepTarget(value, shown, store.playhead.position(), max) })
+    else if (action === "seek") store.send({ type: "seek", to: value })
     if (action !== "preview" || track === null) return
 
     const now = scrub.current
@@ -196,7 +210,6 @@ export function WavePlayerSeek({
   const track = React.useRef<HTMLDivElement>(null)
   const width = useWidth(track, DESIGN_WIDTH)
   const count = barCount(width)
-  const scrub = useScrub()
   const disabled = !current || !view.seekable || duration === null
 
   useNeed("current")
@@ -206,13 +219,14 @@ export function WavePlayerSeek({
   const value = usePlayhead(store.playhead, (position) =>
     duration === null ? 0 : Math.min(duration, Math.floor(position / step) * step)
   )
+  const scrub = useScrub(value, duration ?? 1)
 
   return (
     <Slider<number>
       min={0}
       max={duration ?? 1}
       step={1}
-      largeStep={10}
+      largeStep={LARGE_STEP}
       value={value}
       disabled={disabled}
       // The value moves in steps finer than a second, so the text reads the playhead the time readout shows.

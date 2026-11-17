@@ -3,8 +3,13 @@ import userEvent from "@testing-library/user-event"
 import { createAgent } from "@ui-sdk/react/agent"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 
+import { AddFiles } from "@/app/wave-player/add-files"
+
 import { WavePlayerCard } from "./card"
-import { testPlayer } from "./testing"
+import { WavePlayerFrame } from "./frame"
+import { WavePlayerScreen, WavePlayerSettings, WavePlayerTransport } from "./parts"
+import { WavePlayerProgress, WavePlayerSeek, WavePlayerTime } from "./seek"
+import { TEST_TRACKS, testPlayer } from "./testing"
 import { WavePlayerStore } from "./wave-player"
 
 const agent = createAgent()
@@ -37,13 +42,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderCard() {
-  const player = testPlayer()
-  render(
-    <WavePlayerStore store={player.store}>
-      <WavePlayerCard />
-    </WavePlayerStore>
-  )
+async function renderCard(
+  children: React.ReactNode = <WavePlayerCard />,
+  tracks = TEST_TRACKS
+) {
+  const player = testPlayer(tracks)
+  render(<WavePlayerStore store={player.store}>{children}</WavePlayerStore>)
   // Tooltips decide whether they name their trigger after mount.
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -182,6 +186,28 @@ test("a step key and an agent's value seek at once", async () => {
   const result = await agent.act({ steps: [{ ref: "Seek", action: "setValue", args: [30] }] })
   expect(result.ok, result.error?.message).toBe(true)
   expect(handle.seeks).toEqual([1, 30])
+  expect(seek().getAttribute("aria-valuetext")).toBe("0:30 of 2:00")
+})
+
+test("a step key moves a whole second from the playhead, even while the thumb sits between seconds", async () => {
+  const player = await renderCard(<WavePlayerCard />, [{ id: "s", title: "Short", src: "/s.mp3", duration: 30 }])
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  // At 30 s the seek bar's steps are finer than a second, so the thumb sits off the whole seconds.
+  const handle = await act(() => player.load("s.mp3", 30))
+  await act(() => player.store.send({ type: "seek", to: 5.6 }))
+
+  seek().focus()
+  await userEvent.keyboard("{ArrowLeft}")
+  expect(handle.seeks).toEqual([5.6, 4])
+
+  await act(() => player.store.send({ type: "seek", to: 5.6 }))
+  await userEvent.keyboard("{ArrowRight}")
+  expect(handle.seeks.at(-1)).toBe(6)
+
+  await act(() => player.store.send({ type: "seek", to: 15.6 }))
+  await userEvent.keyboard("{PageDown}")
+  expect(handle.seeks.at(-1)).toBe(5)
 })
 
 /** A drag on the seek bar, 0 to 120 s laid over 0 to 120 px, sent as UI SDK's own test drag sends it. */
@@ -308,6 +334,7 @@ test("an agent can find every control by name, press Play, set Level, and set Se
     expect(labels, `${label} is missing from the snapshot`).toContain(label)
   }
   expect(components.filter((entry) => entry.component === "tooltip")).toEqual([])
+  expect(labels).not.toContain("Level")
 
   const result = await agent.act({
     steps: [
@@ -323,6 +350,10 @@ test("an agent can find every control by name, press Play, set Level, and set Se
   expect(snapshot(player).current?.track.title).toBe("Undertow")
   expect(snapshot(player).settings).toMatchObject({ level: 0.4, repeat: "all", shuffle: true })
   expect(player.station.openStrip).toHaveBeenCalledOnce()
+
+  const opened = agent.snapshot().filter((entry) => !entry.offPage).map((entry) => entry.label)
+  expect(opened).toContain("Level")
+  expect(opened).toContain("Mute")
 
   const handle = await act(() => player.load("b.mp3"))
   const seeked = await agent.act({ steps: [{ ref: "Seek", action: "setValue", args: [45] }] })
@@ -344,4 +375,77 @@ test("the letter keys send their commands", async () => {
 
   await user.keyboard("n")
   expect(snapshot(player).current?.track.title).not.toBe("Low tide")
+})
+
+test("a failed track shows the fault, unknown times, a disabled Seek, and what Play does", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  act(() =>
+    player.strips[0].emit({ kind: "failed", source: "file", error: { kind: "unknown", message: "404" } })
+  )
+
+  expect(snapshot(player).status).toEqual({ kind: "failed", reason: "load" })
+  expect(screen.getByText("FAULT")).toBeTruthy()
+  expect(screen.getByText("Couldn't load the track")).toBeTruthy()
+  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("--:--")
+  expect(seek().hasAttribute("disabled") || seek().getAttribute("aria-disabled") === "true").toBe(true)
+
+  const play = screen.getByRole("button", { name: "Play" })
+  expect(play.getAttribute("aria-pressed")).toBe("false")
+  expect(document.getElementById(play.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Tries again.")
+  expect(document.querySelector("[aria-live=polite]")?.textContent).toBe("Couldn't load Low tide.")
+})
+
+test("two frames on one store share the keys without a warning", async () => {
+  const player = await renderCard(
+    <>
+      <WavePlayerCard />
+      <WavePlayerFrame kind="mini">
+        <WavePlayerScreen className="size-18" />
+        <WavePlayerTransport size="sm" />
+      </WavePlayerFrame>
+    </>
+  )
+
+  await userEvent.keyboard("s")
+  expect(snapshot(player).settings.shuffle).toBe(true)
+  expect(screen.getAllByRole("region", { name: "WavePlayer" })).toHaveLength(2)
+})
+
+test("the small variants' parts: the line seek, the progress, and the Settings popup", async () => {
+  const player = await renderCard(
+    <WavePlayerFrame kind="bar">
+      <WavePlayerSeek appearance="line" />
+      <WavePlayerProgress />
+      <WavePlayerTime />
+      <WavePlayerSettings />
+    </WavePlayerFrame>
+  )
+  const user = userEvent.setup()
+
+  expect(screen.getByRole("progressbar", { name: "Progress" }).getAttribute("aria-valuetext")).toBe("0:00 of 2:00")
+
+  await user.click(screen.getByRole("button", { name: "Settings" }))
+  await user.click(screen.getByRole("button", { name: "Shuffle" }))
+  await user.click(screen.getByRole("radio", { name: "All" }))
+  await user.click(screen.getByRole("button", { name: "Mute" }))
+  expect(snapshot(player).settings).toMatchObject({ shuffle: true, repeat: "all", muted: true })
+
+  await user.keyboard("{Escape}")
+  act(() => player.store.send({ type: "toggle" }))
+  const handle = await act(() => player.load())
+
+  seek().focus()
+  await user.keyboard("{End}")
+  expect(handle.seeks).toEqual([120])
+  expect(screen.getByRole("progressbar", { name: "Progress" }).getAttribute("aria-valuetext")).toBe("2:00 of 2:00")
+})
+
+test("an agent can't add files without a person", async () => {
+  await renderCard(<AddFiles />)
+
+  const result = await agent.act({ steps: [{ ref: "Add files", action: "press" }] })
+  expect(result.ok).toBe(false)
+  expect(result.error?.message).toMatch(/person/i)
 })
