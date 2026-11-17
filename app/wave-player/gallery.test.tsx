@@ -65,7 +65,7 @@ const variant = (label: string) => screen.getByRole("radio", { name: label })
 test("shows one variant at a time, and a swap keeps the same store playing", async () => {
   const changes: VariantId[] = []
   const { player, user } = await renderGallery(
-    <Gallery initialVariant="card" onVariantChange={(id) => changes.push(id)} />
+    <Gallery variant="card" onVariantChange={(id) => changes.push(id)} />
   )
 
   expect(frames()).toHaveLength(1)
@@ -82,7 +82,8 @@ test("shows one variant at a time, and a swap keeps the same store playing", asy
   expect(player.store.getSnapshot().status.kind).toBe("playing")
 
   await user.click(variant("Playlist"))
-  expect(frames()).toHaveLength(0)
+  expect(frames()).toHaveLength(1)
+  expect(screen.queryByRole("button", { name: "Play" })).toBeNull()
   expect(screen.getByRole("grid", { name: "Playlist" })).toBeTruthy()
   expect(player.store.getSnapshot().status.kind).toBe("playing")
 
@@ -100,7 +101,7 @@ test("every variant has the route the gallery links to", () => {
 })
 
 test("each variant links to its own page", async () => {
-  const { user } = await renderGallery(<Gallery initialVariant="card" />)
+  const { user } = await renderGallery(<Gallery variant="card" />)
 
   expect(
     screen.getByRole("link", { name: "Card on its own page" }).getAttribute("href")
@@ -118,7 +119,7 @@ test("the URL picks the variant, and a change writes it back", async () => {
   const { user } = await renderGallery(<GalleryFromUrl />)
 
   expect(variant("Playlist").getAttribute("aria-checked")).toBe("true")
-  expect(frames()).toHaveLength(0)
+  expect(screen.getByRole("grid", { name: "Playlist" })).toBeTruthy()
 
   await user.click(variant("Card"))
   expect(String(replace.mock.lastCall?.[2])).toMatch(/\?variant=card$/)
@@ -133,7 +134,7 @@ test("an unknown variant in the URL falls back to the card", async () => {
 })
 
 test("an agent finds every control by name with the card and Playlist shown", async () => {
-  const { player } = await renderGallery(<Gallery initialVariant="with-playlist" />)
+  const { player } = await renderGallery(<Gallery variant="with-playlist" />)
 
   const components = agent.snapshot().filter((entry) => !entry.offPage && entry.component !== "more")
   for (const entry of components) {
@@ -176,4 +177,54 @@ test("an agent finds every control by name with the card and Playlist shown", as
   // The gallery swaps the variant in a transition, which lands after the agent's steps return.
   await waitFor(() => expect(variant("Card").getAttribute("aria-checked")).toBe("true"))
   expect(screen.queryByRole("button", { name: "Open Playlist" })).toBeNull()
+})
+
+test("a URL change after mount swaps the variant, its radio, and its link together", async () => {
+  params.search = "variant=mini"
+  const player = testPlayer(TEST_TRACKS)
+  const view = render(
+    <WavePlayerStore store={player.store}>
+      <GalleryFromUrl />
+    </WavePlayerStore>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  expect(variant("Mini").getAttribute("aria-checked")).toBe("true")
+
+  params.search = "variant=card"
+  view.rerender(
+    <WavePlayerStore store={player.store}>
+      <GalleryFromUrl />
+    </WavePlayerStore>
+  )
+
+  expect(variant("Card").getAttribute("aria-checked")).toBe("true")
+  expect(screen.queryByRole("link", { name: "Open player" })).toBeNull()
+  expect(screen.getByRole("link", { name: "Card on its own page" }).getAttribute("href")).toBe(
+    "/wave-player/card"
+  )
+})
+
+test("with the Playlist alone, the player's page keys and Space on a row still work", async () => {
+  const player = testPlayer(TEST_TRACKS)
+  render(
+    <WavePlayerStore store={player.store} keys="page">
+      <Gallery variant="playlist" />
+    </WavePlayerStore>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  const user = userEvent.setup()
+
+  variant("Playlist").focus()
+  await user.keyboard("s")
+  expect(player.store.getSnapshot().settings.shuffle).toBe(true)
+
+  const cell = screen.getByRole("grid", { name: "Playlist" }).querySelector<HTMLElement>('[tabindex="0"]')!
+  cell.focus()
+  await user.keyboard(" ")
+  expect(player.station.openStrip).toHaveBeenCalledOnce()
+  expect(player.store.getSnapshot().settings.shuffle).toBe(true)
 })

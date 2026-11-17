@@ -33,14 +33,53 @@ const WIDE_REM = 21.25 + 2 * (1.5 + 20)
 
 const SURFACE = "bg-card text-card-foreground shadow-surface ring-1 ring-foreground/10"
 
+const OPEN_PLAYLIST = 'button[aria-label="Open Playlist"]'
+
 export function WavePlayerWithPlaylist({ className }: { readonly className?: string }) {
   const root = React.useRef<HTMLDivElement>(null)
-  const wide = useWide(root)
+  const beside = React.useRef<HTMLDivElement>(null)
+  const panelOpen = React.useRef(false)
+  // A new width hides one part: Open Playlist when wide, the Playlist beside
+  // the card when narrow. This is set when that part held the focus.
+  const hiddenHadFocus = React.useRef(false)
+  // The focus can still be on the hidden part when the width is measured.
+  const noteFocus = React.useCallback((next: boolean) => {
+    const hidden = next ? root.current?.querySelector(OPEN_PLAYLIST) : beside.current
+
+    if (hidden?.contains(document.activeElement)) hiddenHadFocus.current = true
+  }, [])
+  const wide = useWide(root, noteFocus)
+
+  // The part that held the focus is gone: the hidden part, or an open panel
+  // that turning wide unmounts. The focus moves to the Playlist's place in the
+  // new layout, unless another element has taken it since.
+  React.useEffect(() => {
+    if (wide === null) return
+
+    const hidden = hiddenHadFocus.current && document.activeElement === document.body
+    const panel = wide && panelOpen.current
+
+    hiddenHadFocus.current = false
+    if (wide) panelOpen.current = false
+    if (!hidden && !panel) return
+
+    root.current?.querySelector<HTMLElement>(wide ? '[role="grid"] [tabindex="0"]' : OPEN_PLAYLIST)?.focus()
+  }, [wide])
 
   return (
     <WavePlayerFrame kind="card" className={cn("@container w-full", className)}>
       <div
         ref={root}
+        // Chrome drops the focus from either part as soon as the part is
+        // hidden, most often before the width is measured. No element receives it.
+        onBlur={(event) => {
+          const from = event.target
+          const part = beside.current?.contains(from) || from.closest(OPEN_PLAYLIST) !== null
+
+          if (part && event.relatedTarget === null && from.getClientRects().length === 0) {
+            hiddenHadFocus.current = true
+          }
+        }}
         className="grid w-full justify-items-center gap-6 @min-[64.25rem]:grid-cols-[1fr_auto_1fr] @min-[64.25rem]:items-start"
       >
         <div
@@ -54,7 +93,14 @@ export function WavePlayerWithPlaylist({ className }: { readonly className?: str
             <div className="flex min-h-6 shrink-0 items-center gap-2">
               <WavePlayerStatus />
               <WavePlayerDuration />
-              {wide === true ? null : <PlaylistPanel className="@min-[64.25rem]:hidden" />}
+              {wide === true ? null : (
+                <PlaylistPanel
+                  className="@min-[64.25rem]:hidden"
+                  onOpenChange={(open) => {
+                    panelOpen.current = open
+                  }}
+                />
+              )}
             </div>
           </div>
           <WavePlayerScreen className="w-full" />
@@ -72,7 +118,7 @@ export function WavePlayerWithPlaylist({ className }: { readonly className?: str
           <WavePlayerControls />
         </div>
         {wide === false ? null : (
-          <div className={cn("hidden w-80 justify-self-start @min-[64.25rem]:block", SURFACE)}>
+          <div ref={beside} className={cn("hidden w-80 justify-self-start @min-[64.25rem]:block", SURFACE)}>
             <WavePlayerPlaylist heading={<h2>Playlist</h2>} />
           </div>
         )}
@@ -81,9 +127,15 @@ export function WavePlayerWithPlaylist({ className }: { readonly className?: str
   )
 }
 
-function PlaylistPanel({ className }: { readonly className?: string }) {
+function PlaylistPanel({
+  className,
+  onOpenChange,
+}: {
+  readonly className?: string
+  readonly onOpenChange: (open: boolean) => void
+}) {
   return (
-    <Dialog>
+    <Dialog onOpenChange={onOpenChange}>
       <DialogTrigger
         aria-label="Open Playlist"
         className={cn(buttonVariants({ variant: "secondary", size: "icon-sm" }), className)}
@@ -109,7 +161,11 @@ function PlaylistPanel({ className }: { readonly className?: string }) {
 // Container queries lay out the server markup, which holds both the Playlist
 // control and the Playlist. Once measured, only the one in use stays mounted,
 // so agents and screen readers find one Playlist.
-function useWide(root: React.RefObject<HTMLElement | null>): boolean | null {
+function useWide(
+  root: React.RefObject<HTMLElement | null>,
+  /** Runs with each measurement, before React renders the layout for it. */
+  onMeasure: (wide: boolean) => void
+): boolean | null {
   const [wide, setWide] = React.useState<boolean | null>(null)
 
   React.useLayoutEffect(() => {
@@ -119,8 +175,10 @@ function useWide(root: React.RefObject<HTMLElement | null>): boolean | null {
 
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const next = element.clientWidth >= WIDE_REM * rem
 
-      setWide(element.clientWidth >= WIDE_REM * rem)
+      onMeasure(next)
+      setWide(next)
     }
     const observer = new ResizeObserver(measure)
 
@@ -128,7 +186,7 @@ function useWide(root: React.RefObject<HTMLElement | null>): boolean | null {
     observer.observe(element)
 
     return () => observer.disconnect()
-  }, [root])
+  }, [root, onMeasure])
 
   return wide
 }

@@ -96,6 +96,7 @@ test("the bar shows a skeleton until its tracks load, then the player in the sam
   const frame = screen.getByRole("region", { name: "WavePlayer" })
 
   expect(frame.querySelector("[data-slot=skeleton]")).not.toBeNull()
+  expect(frame.textContent).toBe("Loading tracks")
   expect(screen.queryByRole("button", { name: "Play" })).toBeNull()
   expect(screen.queryByRole("progressbar")).toBeNull()
 

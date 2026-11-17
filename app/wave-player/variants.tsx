@@ -7,8 +7,8 @@ import * as React from "react"
 
 import { WavePlayerBar } from "@/components/wave-player/bar"
 import { WavePlayerCard } from "@/components/wave-player/card"
+import { WavePlayerFrame } from "@/components/wave-player/frame"
 import { WavePlayerMini } from "@/components/wave-player/mini"
-import { FRAME_MOTION } from "@/components/wave-player/morph"
 import { WavePlayerPlaylist } from "@/components/wave-player/playlist-view"
 import { WavePlayerWithPlaylist } from "@/components/wave-player/with-playlist"
 
@@ -45,14 +45,14 @@ export function findVariant(id: string | null | undefined): (typeof VARIANTS)[nu
   return VARIANTS.find((variant) => variant.id === id) ?? VARIANTS[0]
 }
 
-// The Playlist has no frame, so it brings its own teleport. The reduced-motion
-// rule in the frame's CSS stops it.
+// The Playlist sits in a frame of its own, so Space and the player's keys keep working with no card on the page.
 function Playlist() {
   return (
-    <React.ViewTransition {...FRAME_MOTION} default="none">
-      <div className="w-full max-w-85 bg-card text-card-foreground shadow-surface ring-1 ring-foreground/10">
-        <WavePlayerPlaylist heading={<h2>Playlist</h2>} />
-      </div>
-    </React.ViewTransition>
+    <WavePlayerFrame
+      kind="playlist"
+      className="w-full max-w-85 bg-card text-card-foreground shadow-surface ring-1 ring-foreground/10"
+    >
+      <WavePlayerPlaylist heading={<h2>Playlist</h2>} />
+    </WavePlayerFrame>
   )
 }

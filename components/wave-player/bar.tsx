@@ -55,6 +55,7 @@ export function WavePlayerBar({ className }: { readonly className?: string }) {
 function BarSkeleton() {
   return (
     <>
+      <span className="sr-only">Loading tracks</span>
       <div className="flex items-center gap-3">
         <Skeleton className="size-9 shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">

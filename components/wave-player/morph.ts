@@ -4,7 +4,7 @@
 // either, so it shows inside whichever frame's snapshot holds it.
 
 // The Playlist has no frame.
-export type FrameKind = "card" | "mini" | "bar"
+export type FrameKind = "card" | "mini" | "bar" | "playlist"
 
 // "unknown" is the server and hydration.
 export type MountMotion = "full" | "reduced" | "unknown"

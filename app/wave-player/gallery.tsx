@@ -16,35 +16,47 @@ export const VARIANT_PARAM = "variant"
 // One variant at a time. The swap runs in a transition, so the leaving frame
 // shrinks while the arriving one grows, and the one screen moves between them.
 export function Gallery({
-  initialVariant,
+  variant: asked,
   onVariantChange,
 }: {
-  readonly initialVariant: VariantId
+  /** The variant the URL asks for. A new value swaps the shown variant. */
+  readonly variant: VariantId
   readonly onVariantChange?: (id: VariantId) => void
 }) {
-  const [id, setId] = React.useState(initialVariant)
+  const [id, setId] = React.useState(asked)
+  const [followed, setFollowed] = React.useState(asked)
+
+  // A link or a history step changed the URL after mount, so the shown variant follows it.
+  if (followed !== asked) {
+    setFollowed(asked)
+    setId(asked)
+  }
+
   const variant = findVariant(id)
 
   return (
     <>
       <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
-        <SegmentedControl<VariantId>
-          aria-label="Variant"
-          size="default"
-          value={id}
-          onValueChange={(next) => {
-            if (!next) return
+        {/* The row of five scrolls on a narrow screen. The padding keeps focus rings inside the scroller. */}
+        <div className="max-w-full overflow-x-auto p-1">
+          <SegmentedControl<VariantId>
+            aria-label="Variant"
+            size="default"
+            value={id}
+            onValueChange={(next) => {
+              if (!next) return
 
-            React.startTransition(() => setId(next))
-            onVariantChange?.(next)
-          }}
-        >
-          {VARIANTS.map((entry) => (
-            <SegmentedControlItem key={entry.id} value={entry.id}>
-              {entry.label}
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
+              React.startTransition(() => setId(next))
+              onVariantChange?.(next)
+            }}
+          >
+            {VARIANTS.map((entry) => (
+              <SegmentedControlItem key={entry.id} value={entry.id}>
+                {entry.label}
+              </SegmentedControlItem>
+            ))}
+          </SegmentedControl>
+        </div>
         <Link
           href={`/wave-player/${variant.id}`}
           aria-label={`${variant.label} on its own page`}
@@ -67,7 +79,7 @@ export function GalleryFromUrl() {
 
   return (
     <Gallery
-      initialVariant={findVariant(params.get(VARIANT_PARAM)).id}
+      variant={findVariant(params.get(VARIANT_PARAM)).id}
       onVariantChange={(id) => {
         const url = new URL(window.location.href)
 

@@ -35,7 +35,19 @@ afterEach(() => {
 })
 
 async function renderWithPlaylist({ width = 390 } = {}) {
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width)
+  const measures: ResizeObserverCallback[] = []
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        measures.push(callback)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  const clientWidth = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width)
   const player = testPlayer(TEST_TRACKS)
   render(
     <WavePlayerStore store={player.store}>
@@ -46,7 +58,18 @@ async function renderWithPlaylist({ width = 390 } = {}) {
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
 
-  return { player, user: userEvent.setup() }
+  return {
+    player,
+    user: userEvent.setup(),
+    /** The container takes a new width. `first` runs before the width is measured, as a browser's own blur can. */
+    resize(next: number, first?: () => void) {
+      clientWidth.mockReturnValue(next)
+      act(() => {
+        first?.()
+        for (const measure of measures) measure([], {} as ResizeObserver)
+      })
+    },
+  }
 }
 
 const openPlaylist = () => screen.getByRole("button", { name: "Open Playlist" })
@@ -112,4 +135,90 @@ test("Space on a row in the panel toggles playback, as it does in the frame", as
 
   await user.keyboard(" ")
   expect(player.store.getSnapshot().status.kind).toBe("loading")
+})
+
+test("turning wide with the panel open moves focus to the Playlist beside the card", async () => {
+  const { user, resize } = await renderWithPlaylist()
+
+  await user.click(openPlaylist())
+  const panel = await screen.findByRole("dialog", { name: "Playlist" })
+  await waitFor(() => expect(panel.contains(document.activeElement)).toBe(true))
+
+  resize(1400)
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  const grid = screen.getByRole("grid", { name: "Playlist" })
+  await waitFor(() => expect(grid.contains(document.activeElement)).toBe(true))
+})
+
+test("turning wide moves focus from Open Playlist to the Playlist beside the card", async () => {
+  const { resize } = await renderWithPlaylist()
+  const control = openPlaylist()
+  act(() => control.focus())
+
+  // Chrome drops the focus from the hidden control before the width is measured.
+  resize(1400, () => control.blur())
+
+  const grid = screen.getByRole("grid", { name: "Playlist" })
+  expect(grid.contains(document.activeElement)).toBe(true)
+})
+
+test("turning wide with the panel closed leaves focus where it was", async () => {
+  const { resize } = await renderWithPlaylist()
+  const play = screen.getByRole("button", { name: "Play" })
+  act(() => play.focus())
+
+  resize(1400)
+
+  expect(screen.getByRole("grid", { name: "Playlist" })).toBeTruthy()
+  expect(document.activeElement).toBe(play)
+})
+
+test("turning narrow moves focus from a Playlist row to Open Playlist", async () => {
+  const { resize } = await renderWithPlaylist({ width: 1400 })
+  const cell = within(row("Low tide")).getAllByRole("gridcell")[0]
+  act(() => cell.focus())
+
+  // Chrome drops the focus from the hidden row before the width is measured.
+  resize(390, () => cell.blur())
+
+  expect(screen.queryByRole("grid")).toBeNull()
+  expect(document.activeElement).toBe(openPlaylist())
+})
+
+test("turning narrow moves focus to Open Playlist when the row keeps the focus until it is removed", async () => {
+  const { resize } = await renderWithPlaylist({ width: 1400 })
+  const cell = within(row("Low tide")).getAllByRole("gridcell")[0]
+  act(() => cell.focus())
+
+  resize(390)
+
+  expect(screen.queryByRole("grid")).toBeNull()
+  expect(document.activeElement).toBe(openPlaylist())
+})
+
+test("a new width leaves the focus on an element that took it after the hidden part lost it", async () => {
+  const { resize } = await renderWithPlaylist({ width: 1400 })
+  const cell = within(row("Low tide")).getAllByRole("gridcell")[0]
+  const play = screen.getByRole("button", { name: "Play" })
+  act(() => cell.focus())
+
+  resize(390, () => {
+    cell.blur()
+    play.focus()
+  })
+
+  expect(screen.queryByRole("grid")).toBeNull()
+  expect(document.activeElement).toBe(play)
+})
+
+test("a new width leaves the focus on the page when another control lost it", async () => {
+  const { resize } = await renderWithPlaylist()
+  const play = screen.getByRole("button", { name: "Play" })
+  act(() => play.focus())
+
+  resize(1400, () => play.blur())
+
+  expect(screen.getByRole("grid", { name: "Playlist" })).toBeTruthy()
+  expect(document.activeElement).toBe(document.body)
 })
