@@ -104,10 +104,12 @@ function setup({
   tracks = TRACKS,
   connectOnPlay = true,
   support = "supported",
+  mediaSession = null,
 }: {
   tracks?: readonly WavePlayerTrack[]
   connectOnPlay?: boolean
   support?: "supported" | "unsupported"
+  mediaSession?: MediaSession | null
 } = {}) {
   const log: string[] = []
   const strips: FakeStrip[] = []
@@ -139,13 +141,14 @@ function setup({
   const env: PlayerEnv = {
     station: () => station,
     support: () => support,
-    mediaSession: () => null,
+    mediaSession: () => mediaSession,
     resolve: (src) => new URL(src, "https://site.test/music/"),
     probeDuration: () => new Promise(() => {}),
     decodePeaks: () => new Promise(() => {}),
     frame: () => () => {},
     setTimer: () => () => {},
     report: vi.fn(),
+    seed: vi.fn(() => 7),
   }
 
   const store = createPlayerStore(tracks, env)
@@ -153,7 +156,7 @@ function setup({
     for (const listener of [...stationListeners]) listener()
   }
 
-  return { store, station, strips, log, stationNotify }
+  return { store, station, strips, log, stationNotify, env }
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -198,13 +201,66 @@ describe("click to play", () => {
     expect(store.getSnapshot().status).toEqual({ kind: "failed", reason: "unsupported" })
   })
 
-  test("an empty playlist ignores commands", () => {
+  test("an empty playlist ignores transport commands and keeps settings", () => {
     const { store, station } = setup({ tracks: [] })
 
     store.send({ type: "toggle" })
+    store.send({ type: "set-repeat", repeat: "all" })
 
     expect(station.openStrip).not.toHaveBeenCalled()
     expect(store.getSnapshot().summary).toEqual({ kind: "empty" })
+    expect(store.getSnapshot().settings.repeat).toBe("all")
+  })
+
+  test("building the store draws no shuffle seed; the first command draws one", () => {
+    const { store, env } = setup()
+
+    expect(env.seed).not.toHaveBeenCalled()
+
+    store.send({ type: "set-shuffle", shuffle: true })
+    store.send({ type: "set-shuffle", shuffle: false })
+
+    expect(env.seed).toHaveBeenCalledOnce()
+  })
+})
+
+describe("Media Session", () => {
+  function fakeSession() {
+    const handlers = new Map<MediaSessionAction, MediaSessionActionHandler | null>()
+    const session = {
+      metadata: null,
+      playbackState: "none",
+      setActionHandler: (action: MediaSessionAction, handler: MediaSessionActionHandler | null) =>
+        handlers.set(action, handler),
+      setPositionState: () => {},
+    } as unknown as MediaSession
+
+    return { session, handlers }
+  }
+
+  test("previous returns to the track that played, and next shows only while the queue has one", () => {
+    vi.stubGlobal(
+      "MediaMetadata",
+      class {
+        constructor(init: object) {
+          Object.assign(this, init)
+        }
+      }
+    )
+
+    const { session, handlers } = fakeSession()
+    const { store } = setup({ mediaSession: session })
+
+    store.send({ type: "play-track", id: "c" })
+    expect(handlers.get("nexttrack")).toBeNull()
+
+    store.send({ type: "set-repeat", repeat: "all" })
+    expect(handlers.get("nexttrack")).toBeTypeOf("function")
+
+    handlers.get("previoustrack")!({ action: "previoustrack" })
+    expect(store.getSnapshot().current?.track.id).toBe("a")
+
+    vi.unstubAllGlobals()
   })
 })
 

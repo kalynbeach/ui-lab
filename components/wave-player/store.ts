@@ -1,7 +1,7 @@
 /*
  * The WavePlayer store: one per provider, and nothing in it knows React.
  *
- * It owns the block's one strip, the current index, the file handle, the
+ * It owns the block's one strip, the intent (queue and settings), the file handle, the
  * position samples, Media Session, and the duration and peaks caches. Views
  * read subscribe() and getSnapshot(), and the playhead for position. Every
  * change of intent goes through send().
@@ -39,12 +39,16 @@ import {
 import { decodePeaks, probeDuration } from "./loaders"
 import {
   deriveState,
+  initialIntent,
   loadKey,
   planCommand,
   planEnded,
+  reconcilePlaylist,
+  reseedIntent,
   startsAudio,
   wantedLoads,
   type Effect,
+  type Intent,
   type Load,
   type Need,
   type PlayerCommand,
@@ -61,8 +65,10 @@ import type { Playhead } from "./playhead"
 import {
   parsePlaylist,
   type PlaylistIssue,
+  type Track,
   type WavePlayerTrack,
 } from "./playlist"
+import { currentOf } from "./queue"
 import { FAILURE } from "./status-view"
 
 /** The strip's gain at level 1. Mastered music peaks near 1, and 0.5 keeps it in the master soft clip's linear range. */
@@ -127,6 +133,8 @@ export type PlayerEnv = {
   readonly setTimer: (callback: () => void, ms: number) => () => void
   /** Playlist issues, once per distinct list. */
   readonly report: (issues: readonly PlaylistIssue[]) => void
+  /** A 32-bit seed for shuffle. Drawn once, at the first command, never during render. */
+  readonly seed: () => number
 }
 
 export function browserEnv(): PlayerEnv {
@@ -150,6 +158,7 @@ export function browserEnv(): PlayerEnv {
     },
     report: (issues) =>
       console.warn("WavePlayer dropped track data it could not use.", issues),
+    seed: () => Math.floor(Math.random() * 2 ** 32),
   }
 }
 
@@ -169,8 +178,10 @@ export function createPlayerStore(
   let { playlist } = parsePlaylist(tracks)
   /** The playlist key whose issues were reported. */
   let reported: string | null = null
-  /** Null exactly when the playlist is empty. Written by send(), the strip listener, and setTracks(). */
-  let index: number | null = playlist.tracks.length > 0 ? 0 : null
+  /** Written by send(), the strip listener, and setTracks(), each through a plan. */
+  let intent: Intent = initialIntent(playlist)
+  /** The intent's seed came from env.seed(). The first command draws it. */
+  let seeded = false
   /** Open from the first sounding gesture until release(). */
   let audio: OpenAudio | null = null
   let nowPlaying: NowPlaying | null = null
@@ -195,7 +206,7 @@ export function createPlayerStore(
 
   const inputs = (): StoreInputs => ({
     playlist,
-    index,
+    intent,
     source: audio?.strip.getStatus() ?? NONE,
     station: audio?.station.getSnapshot() ?? null,
     feed: audio?.strip.getFeed() ?? null,
@@ -255,25 +266,39 @@ export function createPlayerStore(
     return audio
   }
 
-  function send(command: PlayerCommand): void {
-    const current = snapshot.current
+  function currentTrack(): Track | null {
+    const id = currentOf(intent.queue)
+    const at = id === null ? undefined : playlist.indexOf.get(id)
 
-    if (index === null || !current) return
+    return at === undefined ? null : playlist.tracks[at]
+  }
+
+  /** Keeps a plan's intent. A seek held for the old current track does not carry over. */
+  function adopt(next: Intent): void {
+    if (currentOf(next.queue) !== currentOf(intent.queue)) pendingSeek = null
+
+    intent = next
+  }
+
+  function send(command: PlayerCommand): void {
+    if (!seeded) {
+      intent = reseedIntent(intent, env.seed())
+      seeded = true
+    }
 
     const plan = planCommand(command, {
-      index,
-      count: playlist.tracks.length,
+      playlist,
+      intent,
       status: snapshot.status.kind,
       position: handle?.position() ?? 0,
-      duration: current.track.duration,
+      duration: snapshot.current?.track.duration ?? null,
       loaded: handle !== null,
       retry:
         snapshot.status.kind !== "failed" ||
         FAILURE[snapshot.status.reason].retry,
-      indexOf: playlist.indexOf,
     })
 
-    if (plan.effect.kind === "none") return
+    if (plan.intent === intent && plan.effect.kind === "none") return
 
     if (startsAudio(plan.effect)) {
       if (env.support() === "unsupported") {
@@ -292,11 +317,8 @@ export function createPlayerStore(
       nowPlaying?.claim()
     }
 
-    if (plan.index !== index) {
-      index = plan.index
-      pendingSeek = null
-    }
-
+    // The new intent first: strip.play() calls back into commit() before it returns.
+    adopt(plan.intent)
     apply(plan.effect)
     commit()
   }
@@ -349,12 +371,13 @@ export function createPlayerStore(
 
   /** Plays the current track on the strip. The strip's status, not this function, reports how it went. */
   function load(): void {
-    if (!audio || index === null) return
+    const track = currentTrack()
+
+    if (!audio || !track) return
 
     token += 1
 
     const mine = token
-    const track = playlist.tracks[index]
 
     handle = null
     awaitingPlay = true
@@ -377,12 +400,13 @@ export function createPlayerStore(
   /** The strip's and the station's listener, and where tracks advance. */
   function onAudioChange(): void {
     const source = audio?.strip.getStatus() ?? NONE
+    const track = currentTrack()
 
     // Status objects keep their identity until they change, and a feed
     // change calls back with the same status, so this is "the status
     // changed". Set `seen` first: strip.play() below calls back into this
     // listener with "connecting", which must not see this `ended` again.
-    if (audio && index !== null && source !== seen) {
+    if (audio && track && source !== seen) {
       seen = source
 
       if (
@@ -392,19 +416,16 @@ export function createPlayerStore(
         awaitingPlay = false
 
       if (source.kind === "file" && source.duration !== null)
-        heard.set(playlist.tracks[index].id, source.duration)
+        heard.set(track.id, source.duration)
 
       if (source.kind === "file" && source.playback === "ended") {
-        const plan = planEnded({ index, count: playlist.tracks.length })
+        const plan = planEnded({ playlist, intent })
 
-        if (plan.effect.kind === "load") {
-          index = plan.index
-          pendingSeek = null
-          // Inside the element's `ended` task, within WebKit's window for
-          // a play() without a gesture. A microtask, effect, or timer here
-          // risks "blocked".
-          load()
-        }
+        adopt(plan.intent)
+        // Inside the element's `ended` task, within WebKit's window for a
+        // play() without a gesture. A microtask, effect, or timer here
+        // risks "blocked".
+        apply(plan.effect)
       }
     }
 
@@ -587,7 +608,7 @@ export function createPlayerStore(
         playlist.tracks.map((track) => [track.id, track.src])
       )
 
-      const current = index === null ? null : playlist.tracks[index]
+      const was = currentTrack()
 
       playlist = parsed.playlist
 
@@ -597,17 +618,13 @@ export function createPlayerStore(
         if (at === undefined || playlist.tracks[at].src !== src) forget(id)
       }
 
-      const kept = current ? playlist.indexOf.get(current.id) : undefined
+      adopt(reconcilePlaylist(intent, playlist))
 
-      if (kept === undefined) {
-        index = playlist.tracks.length > 0 ? 0 : null
+      const now = currentTrack()
+
+      // A dropped current track, or a new file under its id, stops playback.
+      if (!was || !now || now.id !== was.id || now.src !== was.src)
         apply({ kind: "cancel" })
-      } else {
-        index = kept
-
-        if (playlist.tracks[kept].src !== current?.src)
-          apply({ kind: "cancel" })
-      }
 
       commit()
     },

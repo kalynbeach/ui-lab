@@ -6,7 +6,10 @@
  *
  * Each piece of state has one writer, and nothing here copies another's:
  *
- *   index      the store, only through a Plan from planCommand() or planEnded()
+ *   intent     the store, only through a Plan from planCommand() or planEnded(),
+ *              or reconcilePlaylist() when the list changes. It holds the
+ *              queue and the settings. The current track's index is looked
+ *              up from the queue, never stored.
  *   playback   the strip. Its SourceStatus describes the current track.
  *   station    kevelle/audio's context state
  *   durations  the site (Track.duration), the playing element (heard), and
@@ -14,12 +17,12 @@
  *   peaks      the site (Track.peaks) and the decoder (decoded)
  *
  * `active` has no writer. deriveState() reads it from the station, the
- * index, and the status, so it can never disagree with them. Neither has
+ * queue, and the status, so it can never disagree with them. Neither has
  * `look`: it is the current track's look, else the block's default.
  *
  * Reading the strip's status without a track id is safe because only a
- * "load" Effect changes the strip's source, and it always plays the track at
- * the plan's index. Every other index change happens with that load.
+ * "load" Effect changes the strip's source, and it always plays the plan's
+ * current track. Every other change of current happens with that load.
  */
 
 import {
@@ -35,7 +38,19 @@ import {
 
 import { currentLook, type WavePlayerLook } from "./look"
 import type { Peaks } from "./peaks"
-import type { Playlist } from "./playlist"
+import type { Playlist, TrackId } from "./playlist"
+import {
+  activate,
+  advance,
+  createQueue,
+  currentOf,
+  reconcile,
+  reseed,
+  reshuffle,
+  retreat,
+  type Queue,
+} from "./queue"
+import { DEFAULT_SETTINGS, type Settings } from "./settings"
 import { STATUS_VIEW } from "./status-view"
 
 export type FailReason =
@@ -89,7 +104,7 @@ const FAILED = {
 
 /** A track as the views show it. No src and no raw peaks; those stay in the store. */
 export type TrackInfo = {
-  readonly id: string
+  readonly id: TrackId
   readonly title: string
   readonly artist: string | null
   readonly record: string | null
@@ -160,13 +175,16 @@ export type PlayerState = {
    * hands it to the site's screen.
    */
   readonly look: WavePlayerLook
+  /** The same object until a setting changes. */
+  readonly settings: Settings
+  /** Next has a track to play: peekNext() is not null. */
+  readonly canNext: boolean
 }
 
 /** Everything deriveState() reads. The store assembles it; the states workbench builds it by hand. */
 export type StoreInputs = {
   readonly playlist: Playlist
-  /** Null exactly when the playlist is empty. */
-  readonly index: number | null
+  readonly intent: Intent
   /** The strip's status, or { kind: "none" } before the first play. */
   readonly source: SourceStatus
   /** Null until the first play opens the strip. */
@@ -192,10 +210,11 @@ export function deriveState(
   previous: PlayerState | null
 ): PlayerState {
   const status = deriveStatus(inputs)
+  const index = indexOf(inputs.playlist, inputs.intent)
 
   const playing = inputs.source.kind === "file" ? inputs.source.duration : null
 
-  const rows = inputs.playlist.tracks.map((track, index) => {
+  const rows = inputs.playlist.tracks.map((track, at) => {
     const row: TrackInfo = {
       id: track.id,
       title: track.title,
@@ -204,13 +223,13 @@ export function deriveState(
       tag: track.tag,
       duration:
         track.duration ??
-        (index === inputs.index ? playing : null) ??
+        (index === at ? playing : null) ??
         inputs.heard.get(track.id) ??
         inputs.probed.get(track.id) ??
         null,
     }
 
-    const old = previous?.tracks[index]
+    const old = previous?.tracks[at]
 
     return old && sameRow(old, row) ? old : row
   })
@@ -222,7 +241,7 @@ export function deriveState(
       ? previous.tracks
       : rows
 
-  const current = currentTrack(inputs, tracks, previous?.current ?? null)
+  const current = currentTrack(inputs, index, tracks, previous?.current ?? null)
   const feed = inputs.feed?.ok ? inputs.feed.value : null
   const summary = summarize(status, current, tracks.length, previous)
 
@@ -230,9 +249,12 @@ export function deriveState(
     inputs.station !== null && current !== null && status.kind !== "ended"
 
   const look = currentLook(
-    inputs.index === null ? null : inputs.playlist.tracks[inputs.index].look,
+    index === null ? null : inputs.playlist.tracks[index].look,
     previous?.look ?? null
   )
+
+  const settings = inputs.intent.settings
+  const canNext = peekNext(inputs.playlist, inputs.intent) !== null
 
   if (
     previous &&
@@ -242,11 +264,30 @@ export function deriveState(
     previous.feed === feed &&
     previous.summary === summary &&
     previous.active === active &&
-    previous.look === look
+    previous.look === look &&
+    previous.settings === settings &&
+    previous.canNext === canNext
   )
     return previous
 
-  return { tracks, current, status, feed, summary, active, look }
+  return {
+    tracks,
+    current,
+    status,
+    feed,
+    summary,
+    active,
+    look,
+    settings,
+    canNext,
+  }
+}
+
+/** The current track's position in the list. Null exactly when the list is empty. */
+function indexOf(playlist: Playlist, intent: Intent): number | null {
+  const id = currentOf(intent.queue)
+
+  return id === null ? null : (playlist.indexOf.get(id) ?? null)
 }
 
 function sameRow(a: TrackInfo, b: TrackInfo): boolean {
@@ -262,25 +303,26 @@ function sameRow(a: TrackInfo, b: TrackInfo): boolean {
 
 function currentTrack(
   inputs: StoreInputs,
+  index: number | null,
   tracks: readonly TrackInfo[],
   previous: CurrentTrack | null
 ): CurrentTrack | null {
-  if (inputs.index === null) return null
+  if (index === null) return null
 
-  const track = tracks[inputs.index]
-  const source = inputs.playlist.tracks[inputs.index]
+  const track = tracks[index]
+  const source = inputs.playlist.tracks[index]
 
   const peaks = source.peaks ?? inputs.decoded.get(source.id) ?? null
 
   if (
     previous &&
-    previous.index === inputs.index &&
+    previous.index === index &&
     previous.track === track &&
     previous.peaks === peaks
   )
     return previous
 
-  return { index: inputs.index, track, peaks }
+  return { index, track, peaks }
 }
 
 function summarize(
@@ -375,9 +417,54 @@ function failReason(error: SourceError): FailReason {
   return error.kind === "station-not-running" ? "audio" : "load"
 }
 
-/** Next is enabled: a track follows the current one. */
-export function hasNext(state: PlayerState): boolean {
-  return state.current !== null && state.current.index < state.tracks.length - 1
+/** What the listener asked for: where the queue stands and the settings. The store's one copy. */
+export type Intent = {
+  readonly queue: Queue
+  readonly settings: Settings
+}
+
+/** The first track current and idle, default settings, and a fixed seed until the store draws one. */
+export function initialIntent(playlist: Playlist): Intent {
+  return {
+    queue: createQueue(order(playlist), DEFAULT_SETTINGS.shuffle, 0),
+    settings: DEFAULT_SETTINGS,
+  }
+}
+
+/** The same intent on a new random state. The store calls it once, from a gesture, never during render. */
+export function reseedIntent(intent: Intent, seed: number): Intent {
+  return { ...intent, queue: reseed(intent.queue, seed) }
+}
+
+/**
+ * The intent after the list changed: the queue keeps only listed tracks
+ * (see reconcile() in queue.ts). Settings never change.
+ */
+export function reconcilePlaylist(intent: Intent, playlist: Playlist): Intent {
+  return {
+    ...intent,
+    queue: reconcile(intent.queue, order(playlist), intent.settings.shuffle),
+  }
+}
+
+/**
+ * The track Next plays, or null when Next does nothing. Repeat all wraps to
+ * a new round; repeat one does not, since a manual Next leaves the loop.
+ * Reads the queue's seed without advancing it, so Next then plays this track.
+ */
+export function peekNext(playlist: Playlist, intent: Intent): TrackId | null {
+  const ahead = advance(
+    intent.queue,
+    order(playlist),
+    intent.settings.shuffle,
+    intent.settings.repeat === "all"
+  )
+
+  return ahead ? currentOf(ahead) : null
+}
+
+function order(playlist: Playlist): readonly TrackId[] {
+  return playlist.tracks.map((track) => track.id)
 }
 
 /**
@@ -392,19 +479,24 @@ export type PlayerCommand =
   | { readonly type: "pause" }
   | { readonly type: "next" }
   | { readonly type: "previous" }
-  /** A Playlist row. An unknown id does nothing. */
+  /** A Playlist row's play action. An unknown id does nothing. */
   | { readonly type: "play-track"; readonly id: string }
   /** Seconds. The plan clamps it into the track. */
   | { readonly type: "seek"; readonly to: number }
+  /** 0 to 1, clamped. Any level above 0 unmutes. */
+  | { readonly type: "set-level"; readonly level: number }
+  | { readonly type: "set-muted"; readonly muted: boolean }
+  | { readonly type: "set-shuffle"; readonly shuffle: boolean }
+  | { readonly type: "set-repeat"; readonly repeat: Settings["repeat"] }
+  | { readonly type: "set-time"; readonly time: Settings["time"] }
 
 /** Previous restarts the track when the position is past this, strictly; at 3.0 s it goes back a track. */
 const RESTART_AFTER = 3
 
 /** What the store knows when a command arrives. */
 export type Situation = {
-  readonly index: number
-  /** At least 1: the store drops commands on an empty playlist. */
-  readonly count: number
+  readonly playlist: Playlist
+  readonly intent: Intent
   readonly status: StatusKind
   /** Read from the file handle when the command arrives, not from the last frame. */
   readonly position: number
@@ -413,12 +505,11 @@ export type Situation = {
   readonly loaded: boolean
   /** False after a failure retrying can't fix, such as No Web Audio. */
   readonly retry: boolean
-  readonly indexOf: ReadonlyMap<string, number>
 }
 
 /**
  * What the store does to the strip. "load" is the only effect that changes
- * the strip's source, and it always plays the track at the plan's index.
+ * the strip's source, and it always plays the plan's current track.
  */
 export type Effect =
   | { readonly kind: "none" }
@@ -434,7 +525,8 @@ export type Effect =
   /** handle.seek(), or held until the track loads. */
   | { readonly kind: "seek"; readonly to: Seconds }
 
-export type Plan = { readonly index: number; readonly effect: Effect }
+/** The intent to keep and what to do to the strip. An unchanged intent is the same object. */
+export type Plan = { readonly intent: Intent; readonly effect: Effect }
 
 const NONE: Effect = { kind: "none" }
 
@@ -469,33 +561,80 @@ const CURRENT_ROW = {
 } as const satisfies Record<StatusKind, Effect>
 
 /**
- * The transport rules:
+ * The transport and settings rules:
  *
  *   toggle      TOGGLE above, but nothing on a failure retrying can't fix
  *   play        as toggle, but nothing while loading or playing
  *   pause       playing pauses, loading cancels, otherwise nothing
- *   next        the next track, playing, even from paused; nothing on the last track
+ *   next        peekNext()'s track, playing, even from paused; nothing
+ *               when it is null
  *   previous    more than 3 s into a loaded track restarts it; otherwise the
- *               previous track, playing; the first track restarts, or loads
- *               when it has not loaded yet
- *   play-track  another track loads it; the current one follows CURRENT_ROW
+ *               track played before, playing; with none, the track restarts,
+ *               or loads when it has not loaded yet
+ *   play-track  another track loads it and starts a new round after it; the
+ *               current one follows CURRENT_ROW
  *   seek        clamped into [0, duration], while the status allows seeking
+ *   set-*       change the setting and nothing else, even with no tracks.
+ *               Shuffle rebuilds the round after current.
  *
  * Next and previous always end up playing: each arrives in a gesture, so
  * the play is allowed, and no "cued but silent" state exists.
  */
 export function planCommand(command: PlayerCommand, at: Situation): Plan {
-  const stay = (effect: Effect): Plan => ({ index: at.index, effect })
+  const { intent } = at
+  const stay = (effect: Effect): Plan => ({ intent, effect })
+
+  switch (command.type) {
+    case "set-level":
+      if (!Number.isFinite(command.level)) return stay(NONE)
+
+      return configure(intent, {
+        level: Math.min(1, Math.max(0, command.level)),
+        muted: command.level > 0 ? false : intent.settings.muted,
+      })
+    case "set-muted":
+      return configure(intent, { muted: command.muted })
+    case "set-shuffle": {
+      const next = configure(intent, { shuffle: command.shuffle })
+
+      if (next.intent === intent) return next
+
+      return {
+        intent: {
+          ...next.intent,
+          queue: reshuffle(intent.queue, order(at.playlist), command.shuffle),
+        },
+        effect: NONE,
+      }
+    }
+
+    case "set-repeat":
+      return configure(intent, { repeat: command.repeat })
+    case "set-time":
+      return configure(intent, { time: command.time })
+    default:
+      return intent.queue.kind === "empty"
+        ? stay(NONE)
+        : planTransport(command, at, intent.queue)
+  }
+}
+
+type Transport = Exclude<PlayerCommand, { readonly type: `set-${string}` }>
+
+function planTransport(
+  command: Transport,
+  at: Situation,
+  queue: Queue & { readonly kind: "ready" }
+): Plan {
+  const { intent } = at
+  const stay = (effect: Effect): Plan => ({ intent, effect })
 
   // Retry is off where it can't help, so Space, Play, and the current row
   // stay quiet there too.
   if (at.status === "failed" && !at.retry) {
     if (command.type === "toggle" || command.type === "play") return stay(NONE)
 
-    if (
-      command.type === "play-track" &&
-      at.indexOf.get(command.id) === at.index
-    )
+    if (command.type === "play-track" && command.id === queue.current)
       return stay(NONE)
   }
 
@@ -516,24 +655,46 @@ export function planCommand(command: PlayerCommand, at: Situation): Plan {
             ? CANCEL
             : NONE
       )
-    case "next":
-      return at.index < at.count - 1
-        ? { index: at.index + 1, effect: LOAD }
-        : stay(NONE)
-    case "previous":
+    case "next": {
+      const ahead = advance(
+        queue,
+        order(at.playlist),
+        intent.settings.shuffle,
+        intent.settings.repeat === "all"
+      )
+
+      return ahead ? move(intent, ahead) : stay(NONE)
+    }
+
+    case "previous": {
       if (at.loaded && at.position > RESTART_AFTER) return stay(RESTART)
 
-      if (at.index > 0) return { index: at.index - 1, effect: LOAD }
+      const back = retreat(queue)
+
+      if (back) return move(intent, back)
 
       return stay(at.loaded ? RESTART : LOAD)
+    }
+
     case "play-track": {
-      const index = at.indexOf.get(command.id)
+      const id = order(at.playlist).find((known) => known === command.id)
 
-      if (index === undefined) return stay(NONE)
+      if (id === undefined) return stay(NONE)
 
-      return index === at.index
-        ? stay(CURRENT_ROW[at.status])
-        : { index, effect: LOAD }
+      if (id === queue.current) return stay(CURRENT_ROW[at.status])
+
+      return {
+        intent: {
+          ...intent,
+          queue: activate(
+            queue,
+            id,
+            order(at.playlist),
+            intent.settings.shuffle
+          ),
+        },
+        effect: LOAD,
+      }
     }
 
     case "seek":
@@ -554,13 +715,45 @@ export function planCommand(command: PlayerCommand, at: Situation): Plan {
 }
 
 /**
- * The strip reported the current track's end. Load the next one when it
- * exists; on the last track stay, so the status reads ended.
+ * The strip reported the current track's end. Repeat one restarts it, in
+ * case the element's own loop did not; otherwise the track Next would play
+ * loads. With none, stay, so the status reads ended.
  */
-export function planEnded(at: Pick<Situation, "index" | "count">): Plan {
-  return at.index < at.count - 1
-    ? { index: at.index + 1, effect: LOAD }
-    : { index: at.index, effect: NONE }
+export function planEnded(
+  at: Pick<Situation, "playlist" | "intent">
+): Plan {
+  const { intent } = at
+
+  if (intent.queue.kind === "empty") return { intent, effect: NONE }
+
+  if (intent.settings.repeat === "one") return { intent, effect: RESTART }
+
+  const ahead = advance(
+    intent.queue,
+    order(at.playlist),
+    intent.settings.shuffle,
+    intent.settings.repeat === "all"
+  )
+
+  return ahead ? move(intent, ahead) : { intent, effect: NONE }
+}
+
+/** Plays the moved queue's current track: restarts it when the move landed on the same one, as repeat all on one track does. */
+function move(intent: Intent, queue: Queue): Plan {
+  return {
+    intent: { ...intent, queue },
+    effect: currentOf(queue) === currentOf(intent.queue) ? RESTART : LOAD,
+  }
+}
+
+/** The intent with `change` applied, or the same intent when nothing differs. */
+function configure(intent: Intent, change: Partial<Settings>): Plan {
+  const settings = { ...intent.settings, ...change }
+  const same = (Object.keys(settings) as (keyof Settings)[]).every(
+    (key) => settings[key] === intent.settings[key]
+  )
+
+  return { intent: same ? intent : { ...intent, settings }, effect: NONE }
 }
 
 /** The effect makes sound, so the store opens the strip and starts the station first, in the same gesture. */

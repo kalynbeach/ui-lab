@@ -5,19 +5,22 @@ import { toSeconds, type SourceStatus, type StationSnapshot } from "@/lib/audio/
 import {
   deriveState,
   deriveStatus,
-  hasNext,
+  initialIntent,
   planCommand,
-  planEnded,
+  reseedIntent,
   startsAudio,
   wantedLoads,
   type Effect,
+  type Intent,
   type PlayerCommand,
   type Situation,
   type StatusKind,
   type StoreInputs,
 } from "./model"
 import { toPeaks } from "./peaks"
-import { parsePlaylist, type WavePlayerTrack } from "./playlist"
+import { parsePlaylist, type Playlist, type WavePlayerTrack } from "./playlist"
+import { currentOf } from "./queue"
+import type { Repeat } from "./settings"
 
 const STATUSES: readonly StatusKind[] = [
   "idle",
@@ -29,26 +32,56 @@ const STATUSES: readonly StatusKind[] = [
   "failed",
 ]
 
+const MODES: readonly { readonly repeat: Repeat; readonly shuffle: boolean }[] = [
+  { repeat: "off", shuffle: false },
+  { repeat: "all", shuffle: false },
+  { repeat: "one", shuffle: false },
+  { repeat: "off", shuffle: true },
+  { repeat: "all", shuffle: true },
+  { repeat: "one", shuffle: true },
+]
+
 const TRACKS: readonly WavePlayerTrack[] = [
   { id: "a", title: "Low tide", src: "/a.mp3" },
   { id: "b", title: "Undertow", src: "/b.mp3" },
   { id: "c", title: "Shoal", src: "/c.mp3" },
 ]
 
-const indexOf = new Map(TRACKS.map((track, index) => [track.id, index]))
+const playlist = parsePlaylist(TRACKS).playlist
 
-function at(overrides: Partial<Situation> = {}): Situation {
+function at(intent: Intent, overrides: Partial<Situation> = {}): Situation {
   return {
-    index: 1,
-    count: 3,
+    playlist,
+    intent,
     status: "paused",
     position: 0,
     duration: toSeconds(200),
     loaded: true,
     retry: true,
-    indexOf,
     ...overrides,
   }
+}
+
+/** The intent after `commands`, each planned from an idle, unloaded track. */
+function after(commands: readonly PlayerCommand[], list: Playlist = playlist): Intent {
+  return commands.reduce(
+    (intent, command) =>
+      planCommand(command, { ...at(intent, { status: "idle", loaded: false }), playlist: list }).intent,
+    reseedIntent(initialIntent(list), 7)
+  )
+}
+
+/** Current is `id`, reached by playing it from the first track, under `mode`. */
+function on(id: string, mode: (typeof MODES)[number] = MODES[0]): Intent {
+  return after([
+    { type: "set-repeat", repeat: mode.repeat },
+    { type: "set-shuffle", shuffle: mode.shuffle },
+    { type: "play-track", id },
+  ])
+}
+
+function outcome(plan: { intent: Intent; effect: Effect }) {
+  return { current: currentOf(plan.intent.queue), effect: plan.effect }
 }
 
 const none: Effect = { kind: "none" }
@@ -59,22 +92,25 @@ const pause: Effect = { kind: "pause" }
 const cancel: Effect = { kind: "cancel" }
 
 describe("planCommand after a failure retrying can't fix", () => {
-  const stuck = at({ status: "failed", retry: false })
+  const stuck = at(on("b"), { status: "failed", retry: false })
 
   test.each<PlayerCommand>([
     { type: "toggle" },
     { type: "play" },
     { type: "play-track", id: "b" },
   ])("$type does nothing", (command) => {
-    expect(planCommand(command, stuck)).toEqual({ index: 1, effect: { kind: "none" } })
+    expect(planCommand(command, stuck)).toEqual({ intent: stuck.intent, effect: none })
   })
 
   test("another row still loads its track", () => {
-    expect(planCommand({ type: "play-track", id: "c" }, stuck).index).toBe(2)
+    expect(outcome(planCommand({ type: "play-track", id: "c" }, stuck))).toEqual({
+      current: "c",
+      effect: load,
+    })
   })
 })
 
-describe("planCommand keeps the track and picks an effect by status", () => {
+describe("planCommand keeps the track and picks an effect by status, under every repeat and shuffle", () => {
   const rows: Record<
     "toggle" | "play" | "pause" | "current row",
     Record<StatusKind, Effect>
@@ -124,81 +160,159 @@ describe("planCommand keeps the track and picks an effect by status", () => {
     "current row": { type: "play-track", id: "b" },
   }
 
-  for (const [name, row] of Object.entries(rows) as [
-    keyof typeof rows,
-    Record<StatusKind, Effect>,
-  ][])
-    test.each(STATUSES)(`${name} while %s`, (status) => {
-      expect(planCommand(commands[name], at({ status }))).toEqual({
-        index: 1,
-        effect: row[status],
-      })
-    })
+  for (const mode of MODES)
+    for (const [name, row] of Object.entries(rows) as [
+      keyof typeof rows,
+      Record<StatusKind, Effect>,
+    ][])
+      test.each(STATUSES)(
+        `${name} while %s, repeat ${mode.repeat}, shuffle ${mode.shuffle}`,
+        (status) => {
+          const intent = on("b", mode)
+          const plan = planCommand(commands[name], at(intent, { status }))
+
+          expect(plan.intent).toBe(intent)
+          expect(plan.effect).toEqual(row[status])
+        }
+      )
 })
 
-describe("next", () => {
-  test.each(STATUSES)("loads the following track while %s", (status) => {
-    expect(planCommand({ type: "next" }, at({ status }))).toEqual({
-      index: 2,
-      effect: load,
-    })
-  })
+describe("next, unshuffled", () => {
+  for (const repeat of ["off", "all", "one"] as const)
+    test.each(STATUSES)(`loads the following track while %s, repeat ${repeat}`, (status) => {
+      const intent = on("b", { repeat, shuffle: false })
 
-  test.each(STATUSES)("does nothing on the last track while %s", (status) => {
-    expect(planCommand({ type: "next" }, at({ status, index: 2 }))).toEqual({
-      index: 2,
-      effect: none,
+      expect(outcome(planCommand({ type: "next" }, at(intent, { status })))).toEqual({
+        current: "c",
+        effect: load,
+      })
     })
+
+  test.each<[Repeat, string, Effect]>([
+    ["off", "c", none],
+    ["all", "a", load],
+    ["one", "c", none],
+  ])("on the last track, repeat %s leaves %s current with %o", (repeat, current, effect) => {
+    for (const status of STATUSES)
+      expect(
+        outcome(planCommand({ type: "next" }, at(on("c", { repeat, shuffle: false }), { status })))
+      ).toEqual({ current, effect })
   })
+})
+
+describe("every remaining command in every status, under every repeat and shuffle", () => {
+  for (const mode of MODES) {
+    const name = `repeat ${mode.repeat}, shuffle ${mode.shuffle}`
+
+    test.each(STATUSES)(`next from the middle loads another track while %s, ${name}`, (status) => {
+      const plan = planCommand({ type: "next" }, at(on("b", mode), { status }))
+
+      expect(plan.effect).toEqual(load)
+      expect(mode.shuffle ? ["a", "c"] : ["c"]).toContain(currentOf(plan.intent.queue))
+    })
+
+    test.each(STATUSES)(`previous within 3 s goes back to what played while %s, ${name}`, (status) => {
+      expect(outcome(planCommand({ type: "previous" }, at(on("b", mode), { status, position: 1 })))).toEqual({
+        current: "a",
+        effect: load,
+      })
+    })
+
+    test.each(STATUSES)(`seek keeps the track while %s, ${name}`, (status) => {
+      const intent = on("b", mode)
+      const plan = planCommand({ type: "seek", to: 42 }, at(intent, { status }))
+
+      expect(plan.intent).toBe(intent)
+      expect(plan.effect).toEqual(status === "failed" ? none : { kind: "seek", to: 42 })
+    })
+
+    test.each(STATUSES)(`settings change and play nothing while %s, ${name}`, (status) => {
+      const intent = on("b", mode)
+      const commands: readonly PlayerCommand[] = [
+        { type: "set-level", level: 0.2 },
+        { type: "set-muted", muted: true },
+        { type: "set-repeat", repeat: mode.repeat === "one" ? "off" : "one" },
+        { type: "set-time", time: "remaining" },
+        { type: "set-shuffle", shuffle: !mode.shuffle },
+      ]
+
+      for (const command of commands) {
+        const plan = planCommand(command, at(intent, { status }))
+
+        expect(plan.effect).toEqual(none)
+        expect(plan.intent.settings).not.toBe(intent.settings)
+        expect(currentOf(plan.intent.queue)).toBe("b")
+      }
+    })
+  }
 })
 
 describe("previous", () => {
-  test.each(STATUSES)(
-    "restarts a loaded track more than 3 s in while %s",
-    (status) => {
-      expect(
-        planCommand({ type: "previous" }, at({ status, position: 3.01 }))
-      ).toEqual({ index: 1, effect: restart })
-    }
-  )
+  for (const mode of MODES)
+    test.each(STATUSES)(
+      `restarts a loaded track more than 3 s in while %s, repeat ${mode.repeat}, shuffle ${mode.shuffle}`,
+      (status) => {
+        const intent = on("b", mode)
+        const plan = planCommand({ type: "previous" }, at(intent, { status, position: 3.01 }))
 
-  test("goes back a track at exactly 3 s", () => {
-    expect(planCommand({ type: "previous" }, at({ position: 3 }))).toEqual({
-      index: 0,
+        expect(plan.intent).toBe(intent)
+        expect(plan.effect).toEqual(restart)
+      }
+    )
+
+  test("goes back to the track played before at exactly 3 s", () => {
+    expect(outcome(planCommand({ type: "previous" }, at(on("b"), { position: 3 })))).toEqual({
+      current: "a",
       effect: load,
     })
   })
 
-  test("goes back a track when the current one has not loaded, whatever the position", () => {
+  test("goes back when the current track has not loaded, whatever the position", () => {
     expect(
-      planCommand({ type: "previous" }, at({ position: 50, loaded: false }))
-    ).toEqual({ index: 0, effect: load })
+      outcome(planCommand({ type: "previous" }, at(on("b"), { position: 50, loaded: false })))
+    ).toEqual({ current: "a", effect: load })
   })
 
-  test("restarts the first track when it has loaded", () => {
-    expect(
-      planCommand({ type: "previous" }, at({ index: 0, position: 1 }))
-    ).toEqual({ index: 0, effect: restart })
+  test("goes back to what played, not to the Playlist's previous row", () => {
+    expect(outcome(planCommand({ type: "previous" }, at(on("c"))))).toEqual({
+      current: "a",
+      effect: load,
+    })
   })
 
-  test("loads the first track when it has not loaded", () => {
-    expect(
-      planCommand({ type: "previous" }, at({ index: 0, loaded: false }))
-    ).toEqual({ index: 0, effect: load })
+  test("restarts the track when nothing played before it and it has loaded", () => {
+    expect(outcome(planCommand({ type: "previous" }, at(after([]), { position: 1 })))).toEqual({
+      current: "a",
+      effect: restart,
+    })
+  })
+
+  test("loads the track when nothing played before it and it has not loaded", () => {
+    expect(outcome(planCommand({ type: "previous" }, at(after([]), { loaded: false })))).toEqual({
+      current: "a",
+      effect: load,
+    })
   })
 })
 
 describe("play-track", () => {
-  test.each(STATUSES)("loads another track while %s", (status) => {
-    expect(
-      planCommand({ type: "play-track", id: "c" }, at({ status }))
-    ).toEqual({ index: 2, effect: load })
-  })
+  for (const mode of MODES)
+    test.each(STATUSES)(
+      `loads another track while %s, repeat ${mode.repeat}, shuffle ${mode.shuffle}`,
+      (status) => {
+        expect(
+          outcome(planCommand({ type: "play-track", id: "c" }, at(on("b", mode), { status })))
+        ).toEqual({ current: "c", effect: load })
+      }
+    )
 
   test("does nothing for an unknown id", () => {
-    expect(
-      planCommand({ type: "play-track", id: "zz" }, at({ status: "idle" }))
-    ).toEqual({ index: 1, effect: none })
+    const intent = on("b")
+
+    expect(planCommand({ type: "play-track", id: "zz" }, at(intent, { status: "idle" }))).toEqual({
+      intent,
+      effect: none,
+    })
   })
 })
 
@@ -206,16 +320,14 @@ describe("seek", () => {
   const seekable = STATUSES.filter((status) => status !== "failed")
 
   test.each(seekable)("seeks to the position while %s", (status) => {
-    expect(planCommand({ type: "seek", to: 42.5 }, at({ status }))).toEqual({
-      index: 1,
-      effect: { kind: "seek", to: 42.5 },
+    expect(planCommand({ type: "seek", to: 42.5 }, at(on("b"), { status })).effect).toEqual({
+      kind: "seek",
+      to: 42.5,
     })
   })
 
   test("does nothing after a failure", () => {
-    expect(
-      planCommand({ type: "seek", to: 42 }, at({ status: "failed" }))
-    ).toEqual({ index: 1, effect: none })
+    expect(planCommand({ type: "seek", to: 42 }, at(on("b"), { status: "failed" })).effect).toEqual(none)
   })
 
   test.each([
@@ -224,26 +336,96 @@ describe("seek", () => {
     [Number.NaN, 0],
     [Number.POSITIVE_INFINITY, 0],
   ])("clamps %d into the track as %d", (to, expected) => {
-    expect(planCommand({ type: "seek", to }, at())).toEqual({
-      index: 1,
-      effect: { kind: "seek", to: expected },
+    expect(planCommand({ type: "seek", to }, at(on("b"))).effect).toEqual({
+      kind: "seek",
+      to: expected,
     })
   })
 
   test("has no upper bound while the duration is unknown", () => {
-    expect(
-      planCommand({ type: "seek", to: 9000 }, at({ duration: null }))
-    ).toEqual({ index: 1, effect: { kind: "seek", to: 9000 } })
+    expect(planCommand({ type: "seek", to: 9000 }, at(on("b"), { duration: null })).effect).toEqual({
+      kind: "seek",
+      to: 9000,
+    })
   })
 })
 
-describe("planEnded", () => {
-  test("advances to the next track, playing", () => {
-    expect(planEnded({ index: 0, count: 3 })).toEqual({ index: 1, effect: load })
+describe("settings", () => {
+  const empty = parsePlaylist([]).playlist
+
+  test("change with no tracks, and nothing plays", () => {
+    const intent = after(
+      [
+        { type: "set-level", level: 0.25 },
+        { type: "set-muted", muted: true },
+        { type: "set-shuffle", shuffle: true },
+        { type: "set-repeat", repeat: "one" },
+        { type: "set-time", time: "remaining" },
+      ],
+      empty
+    )
+
+    expect(intent.settings).toEqual({
+      level: 0.25,
+      muted: true,
+      shuffle: true,
+      repeat: "one",
+      time: "remaining",
+    })
+    expect(currentOf(intent.queue)).toBeNull()
   })
 
-  test("stays on the last track", () => {
-    expect(planEnded({ index: 2, count: 3 })).toEqual({ index: 2, effect: none })
+  test.each<PlayerCommand>([
+    { type: "toggle" },
+    { type: "next" },
+    { type: "previous" },
+    { type: "play-track", id: "a" },
+    { type: "seek", to: 3 },
+  ])("%o does nothing with no tracks", (command) => {
+    const intent = after([], empty)
+
+    expect(planCommand(command, { ...at(intent), playlist: empty })).toEqual({ intent, effect: none })
+  })
+
+  test.each<[number, number]>([
+    [0.4, 0.4],
+    [1.5, 1],
+    [-1, 0],
+  ])("level %d is kept as %d", (level, expected) => {
+    expect(after([{ type: "set-level", level }]).settings.level).toBe(expected)
+  })
+
+  test("a level that is not a number changes nothing", () => {
+    const intent = after([{ type: "set-level", level: 0.3 }])
+
+    expect(planCommand({ type: "set-level", level: Number.NaN }, at(intent)).intent).toBe(intent)
+  })
+
+  test("any level above 0 unmutes, and 0 keeps the mute", () => {
+    const muted = after([{ type: "set-muted", muted: true }])
+
+    expect(planCommand({ type: "set-level", level: 0 }, at(muted)).intent.settings.muted).toBe(true)
+    expect(planCommand({ type: "set-level", level: 0.1 }, at(muted)).intent.settings.muted).toBe(false)
+  })
+
+  test("a setting that does not change keeps the same intent, and none plays", () => {
+    const intent = after([{ type: "set-repeat", repeat: "all" }])
+
+    for (const command of [
+      { type: "set-repeat", repeat: "all" },
+      { type: "set-level", level: 1 },
+      { type: "set-muted", muted: false },
+      { type: "set-shuffle", shuffle: false },
+      { type: "set-time", time: "elapsed" },
+    ] as const)
+      expect(planCommand(command, at(intent))).toEqual({ intent, effect: none })
+  })
+
+  test("repeat and time keep the queue", () => {
+    const intent = on("b")
+
+    expect(planCommand({ type: "set-repeat", repeat: "one" }, at(intent)).intent.queue).toBe(intent.queue)
+    expect(planCommand({ type: "set-time", time: "remaining" }, at(intent)).intent.queue).toBe(intent.queue)
   })
 })
 
@@ -342,10 +524,16 @@ describe("deriveStatus", () => {
   })
 })
 
-function inputs(overrides: Partial<StoreInputs> = {}): StoreInputs {
+/** The store's inputs with `current` played from the first track, which is current by default. */
+function inputs({
+  current = "a",
+  ...overrides
+}: Partial<StoreInputs> & { readonly current?: string } = {}): StoreInputs {
+  const list = overrides.playlist ?? playlist
+
   return {
-    playlist: parsePlaylist(TRACKS).playlist,
-    index: 0,
+    playlist: list,
+    intent: after(current === "a" ? [] : [{ type: "play-track", id: current }], list),
     source: { kind: "none" },
     station: null,
     feed: null,
@@ -361,7 +549,7 @@ function inputs(overrides: Partial<StoreInputs> = {}): StoreInputs {
 describe("deriveState", () => {
   test("an empty playlist has no current track and reads empty", () => {
     const state = deriveState(
-      inputs({ playlist: parsePlaylist([]).playlist, index: null }),
+      inputs({ playlist: parsePlaylist([]).playlist }),
       null
     )
 
@@ -372,7 +560,7 @@ describe("deriveState", () => {
 
   test("the summary carries the status and the current track", () => {
     const state = deriveState(
-      inputs({ index: 1, source: file("playing"), station: running }),
+      inputs({ current: "b", source: file("playing"), station: running }),
       null
     )
 
@@ -385,7 +573,7 @@ describe("deriveState", () => {
 
   test("the last track ending turns playback inactive", () => {
     const state = deriveState(
-      inputs({ index: 2, source: file("ended"), station: running }),
+      inputs({ current: "c", source: file("ended"), station: running }),
       null
     )
 
@@ -403,7 +591,7 @@ describe("deriveState", () => {
     const state = deriveState(
       inputs({
         playlist: parsePlaylist(tracks).playlist,
-        index: 1,
+        current: "b",
         source: file("playing", 20),
         heard: new Map([
           ["a", toSeconds(99)],
@@ -433,7 +621,7 @@ describe("deriveState", () => {
     const playlist = parsePlaylist(tracks).playlist
 
     expect(deriveState(inputs({ playlist, decoded }), null).current?.peaks).toEqual([0.5])
-    expect(deriveState(inputs({ playlist, decoded, index: 1 }), null).current?.peaks).toEqual([0.1])
+    expect(deriveState(inputs({ playlist, decoded, current: "b" }), null).current?.peaks).toEqual([0.1])
   })
 
   test("returns the previous snapshot while nothing it shows changes", () => {
@@ -469,9 +657,9 @@ describe("deriveState", () => {
     expect(next.current).toBe(first.current)
   })
 
-  test("hasNext is false on the last track", () => {
-    expect(hasNext(deriveState(inputs({ index: 1 }), null))).toBe(true)
-    expect(hasNext(deriveState(inputs({ index: 2 }), null))).toBe(false)
+  test("canNext is false on the last track with repeat off", () => {
+    expect(deriveState(inputs({ current: "b" }), null).canNext).toBe(true)
+    expect(deriveState(inputs({ current: "c" }), null).canNext).toBe(false)
   })
 })
 
@@ -479,7 +667,7 @@ describe("wantedLoads", () => {
   const all = { durations: true, current: true, peaks: true }
 
   test("probes the idle current track first, then the Playlist's other tracks", () => {
-    const state = deriveState(inputs({ index: 1 }), null)
+    const state = deriveState(inputs({ current: "b" }), null)
 
     expect(wantedLoads(state, all, new Set())).toEqual([
       { kind: "duration", id: "b" },

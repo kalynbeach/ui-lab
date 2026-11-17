@@ -15,7 +15,7 @@ import {
   type Seconds,
 } from "@/lib/audio/index"
 
-import { hasNext, type PlayerCommand, type PlayerState } from "./model"
+import type { PlayerCommand, PlayerState } from "./model"
 import { STATUS_VIEW } from "./status-view"
 
 /** The part of navigator.mediaSession that Now Playing writes. */
@@ -36,7 +36,7 @@ export type NowPlayingView = {
     readonly duration: Seconds
     readonly position: Seconds
   } | null
-  /** The OS shows a next-track control. False on the last track. */
+  /** The OS shows a next-track control while Next has a track to play. Its handler and Previous's walk the same queue as the views. */
   readonly next: boolean
 }
 
@@ -68,7 +68,7 @@ export function describeNowPlaying(
       duration === null
         ? null
         : { duration, position: toSeconds(Math.min(position, duration)) },
-    next: hasNext(state),
+    next: state.canNext,
   }
 }
 
