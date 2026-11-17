@@ -1,0 +1,347 @@
+import { act, fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { createAgent } from "@ui-sdk/react/agent"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
+
+import { WavePlayerCard } from "./card"
+import { testPlayer } from "./testing"
+import { WavePlayerStore } from "./wave-player"
+
+const agent = createAgent()
+
+// jsdom has no IntersectionObserver, matchMedia, or canvas contexts.
+beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null)
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: false,
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }) as unknown as MediaQueryList
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+async function renderCard() {
+  const player = testPlayer()
+  render(
+    <WavePlayerStore store={player.store}>
+      <WavePlayerCard />
+    </WavePlayerStore>
+  )
+  // Tooltips decide whether they name their trigger after mount.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  return player
+}
+
+const snapshot = (player: ReturnType<typeof testPlayer>) => player.store.getSnapshot()
+
+const seek = () => screen.getByRole("slider", { name: "Seek" })
+
+test("each control is named and sends its command", async () => {
+  const player = await renderCard()
+  const user = userEvent.setup()
+
+  expect(screen.getByRole("region", { name: "WavePlayer" })).toBeTruthy()
+  expect(screen.getByText("Low tide")).toBeTruthy()
+  expect(screen.getByText("Kevelle · Samples")).toBeTruthy()
+
+  await user.click(screen.getByRole("button", { name: "Play" }))
+  expect(player.station.openStrip).toHaveBeenCalledOnce()
+  expect(snapshot(player).status.kind).toBe("loading")
+
+  await user.click(screen.getByRole("button", { name: "Next track" }))
+  expect(snapshot(player).current?.track.title).toBe("Undertow")
+
+  await user.click(screen.getByRole("button", { name: "Previous track" }))
+  expect(snapshot(player).current?.track.title).toBe("Low tide")
+
+  await user.click(screen.getByRole("button", { name: "Shuffle" }))
+  expect(snapshot(player).settings.shuffle).toBe(true)
+
+  await user.click(screen.getByRole("radio", { name: "One" }))
+  expect(snapshot(player).settings.repeat).toBe("one")
+
+  await user.click(screen.getByRole("button", { name: "Remaining time" }))
+  expect(snapshot(player).settings.time).toBe("remaining")
+  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("−02:00")
+
+  await user.click(screen.getByRole("button", { name: "Volume" }))
+  await user.click(screen.getByRole("button", { name: "Mute" }))
+  expect(snapshot(player).settings.muted).toBe(true)
+
+  screen.getByRole("slider", { name: "Level" }).focus()
+  await user.keyboard("{ArrowLeft}")
+  expect(snapshot(player).settings.level).toBe(0.99)
+  expect(snapshot(player).settings.muted).toBe(false)
+})
+
+test("the wheel over Level steps the level", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Volume" }))
+  const level = screen.getByRole("slider", { name: "Level" })
+
+  fireEvent.wheel(level, { deltaY: 100 })
+  expect(snapshot(player).settings.level).toBe(0.95)
+  fireEvent.wheel(level, { deltaY: -100 })
+  expect(snapshot(player).settings.level).toBe(1)
+})
+
+test("the Play toggle keeps its name in every status and says when it is pressed", async () => {
+  const player = await renderCard()
+  const play = () => screen.getByRole("button", { name: "Play" })
+
+  expect(play().getAttribute("aria-pressed")).toBe("false")
+
+  await userEvent.click(play())
+  expect(play().getAttribute("aria-pressed")).toBe("true")
+
+  const handle = await act(() => player.load())
+  expect(snapshot(player).status.kind).toBe("playing")
+  expect(play().getAttribute("aria-pressed")).toBe("true")
+
+  await userEvent.click(play())
+  expect(handle.pause).toHaveBeenCalledOnce()
+  act(() => player.strips[0].emit({ kind: "file", name: "a.mp3", duration: null, playback: "paused" }))
+  expect(snapshot(player).status.kind).toBe("paused")
+  expect(play().getAttribute("aria-pressed")).toBe("false")
+})
+
+test("the live region says what plays once, not every status", async () => {
+  const player = await renderCard()
+  const live = () => document.querySelector("[aria-live=polite]")?.textContent
+
+  expect(live()).toBe("")
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  await act(() => player.load())
+  expect(live()).toBe("Now playing Low tide.")
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  expect(live()).toBe("Now playing Low tide.")
+  expect(document.querySelectorAll("[aria-live]")).toHaveLength(1)
+})
+
+test("Space on the Seek thumb toggles playback once, and a button keeps its own Space", async () => {
+  const player = await renderCard()
+  const user = userEvent.setup()
+
+  seek().focus()
+  await user.keyboard(" ")
+  expect(snapshot(player).status.kind).toBe("loading")
+  expect(player.station.openStrip).toHaveBeenCalledOnce()
+  expect(player.strips[0].plays).toHaveLength(1)
+
+  screen.getByRole("button", { name: "Shuffle" }).focus()
+  await user.keyboard(" ")
+  expect(snapshot(player).settings.shuffle).toBe(true)
+  expect(snapshot(player).status.kind).toBe("loading")
+})
+
+test("Space on the frame itself toggles playback", async () => {
+  const player = await renderCard()
+
+  screen.getByRole("region", { name: "WavePlayer" }).focus()
+  await userEvent.keyboard(" ")
+
+  expect(snapshot(player).status.kind).toBe("loading")
+})
+
+test("a step key and an agent's value seek at once", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  const handle = await act(() => player.load())
+
+  seek().focus()
+  const user = userEvent.setup()
+  await user.keyboard("{ArrowRight>}")
+  expect(handle.seeks).toEqual([1])
+  await user.keyboard("{/ArrowRight}")
+  expect(handle.seeks).toEqual([1])
+
+  const result = await agent.act({ steps: [{ ref: "Seek", action: "setValue", args: [30] }] })
+  expect(result.ok, result.error?.message).toBe(true)
+  expect(handle.seeks).toEqual([1, 30])
+})
+
+/** A drag on the seek bar, 0 to 120 s laid over 0 to 120 px, sent as UI SDK's own test drag sends it. */
+function drag() {
+  const control = document.querySelector<HTMLElement>("[data-slot=wave-player] [data-slot=slider-control]")!
+  const track = control.querySelector<HTMLElement>("[data-slot=slider-track]")!
+  const rect = { left: 0, top: 0, right: 120, bottom: 36, width: 120, height: 36, x: 0, y: 0 }
+
+  for (const element of [control, track])
+    element.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect })
+
+  const send = (type: string, clientX: number, buttons: number) => {
+    const event = new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX,
+      clientY: 18,
+      button: type === "pointermove" ? -1 : 0,
+      buttons,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+    })
+
+    act(() => {
+      control.dispatchEvent(event)
+    })
+  }
+
+  // The slider reads moves once a frame.
+  const frame = () =>
+    act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+
+  return {
+    down: async (x: number) => {
+      send("pointerdown", x, 1)
+      await frame()
+    },
+    move: async (x: number) => {
+      send("pointermove", x, 1)
+      await frame()
+    },
+    up: async (x: number) => {
+      send("pointerup", x, 0)
+      await frame()
+    },
+    cancel: async () => {
+      send("pointercancel", 0, 0)
+      await frame()
+    },
+  }
+}
+
+test("a drag previews its target and seeks once on release", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  const handle = await act(() => player.load())
+  const pointer = drag()
+
+  await pointer.down(30)
+  await pointer.move(60)
+  expect(player.store.playhead.position()).toBe(60)
+  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("01:00")
+  expect(handle.seeks).toEqual([])
+
+  await pointer.up(60)
+  expect(handle.seeks).toEqual([60])
+})
+
+test("Escape drops a drag's preview, and its release seeks nothing", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  const handle = await act(() => player.load())
+  const pointer = drag()
+
+  await pointer.down(30)
+  await pointer.move(60)
+  fireEvent.keyDown(window, { key: "Escape" })
+  expect(player.store.playhead.position()).toBe(0)
+
+  await pointer.move(90)
+  expect(player.store.playhead.position()).toBe(0)
+  await pointer.up(90)
+  expect(handle.seeks).toEqual([])
+
+  await pointer.down(40)
+  await pointer.up(40)
+  expect(handle.seeks).toEqual([40])
+})
+
+test("a cancelled pointer drops the preview with no seek, and the next drag still seeks", async () => {
+  const player = await renderCard()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  const handle = await act(() => player.load())
+  const pointer = drag()
+
+  await pointer.down(30)
+  await pointer.move(60)
+  await pointer.cancel()
+  expect(player.store.playhead.position()).toBe(0)
+  expect(handle.seeks).toEqual([])
+
+  await pointer.down(20)
+  await pointer.move(50)
+  await pointer.up(50)
+  expect(handle.seeks).toEqual([50])
+})
+
+test("an agent can find every control by name, press Play, set Level, and set Seek", async () => {
+  const player = await renderCard()
+
+  const components = agent.snapshot().filter((entry) => !entry.offPage && entry.component !== "more")
+  for (const entry of components) {
+    expect(entry.label, `${entry.component} ${entry.ref} has no name`).toBeTruthy()
+  }
+  const labels = components.map((entry) => entry.label)
+  for (const label of ["Transport", "Play", "Seek", "Shuffle", "Repeat", "Volume", "Remaining time"]) {
+    expect(labels, `${label} is missing from the snapshot`).toContain(label)
+  }
+  expect(components.filter((entry) => entry.component === "tooltip")).toEqual([])
+
+  const result = await agent.act({
+    steps: [
+      { ref: "Play", action: "setPressed", args: [true] },
+      { ref: "Transport", action: "press", args: ["Next track"] },
+      { ref: "Volume", action: "setOpen", args: [true] },
+      { ref: "Level", action: "setValue", args: [0.4] },
+      { ref: "Repeat", action: "setValue", args: ["All"] },
+      { ref: "Shuffle", action: "setPressed", args: [true] },
+    ],
+  })
+  expect(result.ok, result.error?.message).toBe(true)
+  expect(snapshot(player).current?.track.title).toBe("Undertow")
+  expect(snapshot(player).settings).toMatchObject({ level: 0.4, repeat: "all", shuffle: true })
+  expect(player.station.openStrip).toHaveBeenCalledOnce()
+
+  const handle = await act(() => player.load("b.mp3"))
+  const seeked = await agent.act({ steps: [{ ref: "Seek", action: "setValue", args: [45] }] })
+  expect(seeked.ok, seeked.error?.message).toBe(true)
+  expect(handle.seeks).toEqual([45])
+})
+
+test("the letter keys send their commands", async () => {
+  const player = await renderCard()
+  const user = userEvent.setup()
+
+  await user.keyboard("smrt")
+  expect(snapshot(player).settings).toMatchObject({
+    shuffle: true,
+    muted: true,
+    repeat: "all",
+    time: "remaining",
+  })
+
+  await user.keyboard("n")
+  expect(snapshot(player).current?.track.title).not.toBe("Low tide")
+})
