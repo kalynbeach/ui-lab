@@ -1,0 +1,8 @@
+/*
+ * A key that ignores presses, because it is pending or disabled but still
+ * focusable, keeps its raised bevel under :active. alloy-raised would sink it.
+ */
+.alloy-raised.alloy-raised:is([aria-disabled="true"], [data-pending]):active {
+  --tw-inset-shadow: var(--alloy-highlight), var(--alloy-lip);
+  --tw-shadow: var(--alloy-line), var(--alloy-drop);
+}

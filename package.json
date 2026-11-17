@@ -13,6 +13,7 @@
     "kevelle:check": "bun tools/kevelle/vendor.ts --check"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@ui-sdk/core": "0.1.0-beta.6",
     "@ui-sdk/react": "0.1.0-beta.6",
     "cn": "^0.5.2",
