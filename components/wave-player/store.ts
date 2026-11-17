@@ -48,6 +48,7 @@ import {
   planEnded,
   reconcilePlaylist,
   reseedIntent,
+  seekTo,
   startsAudio,
   wantedLoads,
   type Effect,
@@ -69,10 +70,11 @@ import {
   parsePlaylist,
   type PlaylistIssue,
   type Track,
+  type TrackId,
   type WavePlayerTrack,
 } from "./playlist"
 import { currentOf } from "./queue"
-import { FAILURE } from "./status-view"
+import { FAILURE, STATUS_VIEW } from "./status-view"
 
 /** The strip's gain at level 1. Mastered music peaks near 1, and 0.5 keeps it in the master soft clip's linear range. */
 const PLAYER_CEILING = 0.5
@@ -205,6 +207,12 @@ export function createPlayerStore(
   const running = new Map<string, () => void>()
   const needs: Record<Need, number> = { durations: 0, current: 0, peaks: 0 }
   let position = toSeconds(0)
+  /** A seek bar drag's target, tied to the track and the load (token) it began on. */
+  let scrub: {
+    readonly id: TrackId
+    readonly token: number
+    readonly to: Seconds
+  } | null = null
   let cancelFrame: (() => void) | null = null
   /** What converge() last set. Null forgets it: a new strip or handle starts from its own defaults. */
   const output: {
@@ -235,6 +243,9 @@ export function createPlayerStore(
 
   function commit(): void {
     converge()
+
+    if (scrub && (scrub.id !== currentOf(intent.queue) || scrub.token !== token))
+      setScrub(null)
 
     const next = deriveState(inputs(), snapshot)
     const changed = next !== snapshot
@@ -583,12 +594,25 @@ export function createPlayerStore(
     decoded.delete(id)
   }
 
+  /** Replaces the scrub, and tells the readouts when what they show changed. */
+  function setScrub(next: typeof scrub): void {
+    const shown = scrub?.to ?? position
+
+    scrub = next
+
+    if ((scrub?.to ?? position) !== shown)
+      for (const listener of positionListeners) listener()
+  }
+
   function sample(): void {
     const next = handle?.position() ?? pendingSeek ?? toSeconds(0)
 
     if (next === position) return
 
     position = next
+
+    // Readouts show the scrub's target until it clears.
+    if (scrub) return
 
     for (const listener of positionListeners) listener()
   }
@@ -612,7 +636,32 @@ export function createPlayerStore(
   }
 
   const playhead: Playhead = {
-    position: () => position,
+    position: () => scrub?.to ?? position,
+    preview(to) {
+      const id = currentOf(intent.queue)
+
+      if (id === null || !STATUS_VIEW[snapshot.status.kind].seekable) return
+
+      setScrub({
+        id,
+        token,
+        to: seekTo(to, snapshot.current?.track.duration ?? null),
+      })
+    },
+    commit() {
+      const held = scrub
+
+      if (!held) return
+
+      // Cleared before send(): the seek re-enters commit() through the strip.
+      setScrub(null)
+
+      if (held.id === currentOf(intent.queue) && held.token === token)
+        send({ type: "seek", to: held.to })
+    },
+    cancel() {
+      setScrub(null)
+    },
     subscribe(listener) {
       positionListeners.add(listener)
       syncFrames()
@@ -714,6 +763,7 @@ export function createPlayerStore(
       const changed = next !== snapshot
 
       snapshot = next
+      setScrub(null)
       sample()
 
       if (changed) notify()

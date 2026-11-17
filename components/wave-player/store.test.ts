@@ -411,6 +411,138 @@ describe("loads", () => {
   })
 })
 
+describe("scrub", () => {
+  async function playing() {
+    const context = setup()
+    const handle = fakeHandle("a.mp3")
+
+    context.store.send({ type: "toggle" })
+    context.strips[0].plays[0].settle(ok(handle))
+    await tick()
+
+    return { ...context, handle }
+  }
+
+  test("a preview shows its target on the playhead and seeks nothing until commit, which seeks once", async () => {
+    const { store, handle } = await playing()
+    const heard = vi.fn()
+    store.playhead.subscribe(heard)
+
+    store.playhead.preview(40)
+    store.playhead.preview(55)
+
+    expect(store.playhead.position()).toBe(55)
+    expect(heard).toHaveBeenCalledTimes(2)
+    expect(handle.seeks).toEqual([])
+
+    store.playhead.commit()
+    store.playhead.commit()
+
+    expect(handle.seeks).toEqual([55])
+    expect(store.playhead.position()).toBe(55)
+  })
+
+  test("cancel drops the preview without seeking", async () => {
+    const { store, handle } = await playing()
+
+    store.playhead.preview(40)
+    store.playhead.cancel()
+    store.playhead.commit()
+
+    expect(handle.seeks).toEqual([])
+    expect(store.playhead.position()).toBe(0)
+  })
+
+  test("a track change drops the scrub, so its commit never seeks the new track", async () => {
+    const { store, strips, handle } = await playing()
+    const next = fakeHandle("b.mp3")
+
+    store.playhead.preview(90)
+    store.send({ type: "next" })
+
+    expect(store.playhead.position()).toBe(0)
+
+    strips[0].plays[1].settle(ok(next))
+    await tick()
+    store.playhead.commit()
+
+    expect(next.seeks).toEqual([])
+    expect(handle.seeks).toEqual([])
+  })
+
+  test("the end of the track drops the scrub", async () => {
+    const { store, strips, handle } = await playing()
+
+    store.playhead.preview(90)
+    strips[0].emit(ended("a.mp3"))
+    store.playhead.commit()
+
+    expect(store.getSnapshot().current?.track.id).toBe("b")
+    expect(handle.seeks).toEqual([])
+  })
+
+  test("a pause keeps the scrub; a cancelled load and a release drop it", async () => {
+    const { store, strips, handle } = await playing()
+
+    strips[0].emit({ kind: "file", name: "a.mp3", duration: toSeconds(200), playback: "playing" })
+    store.playhead.preview(30)
+    store.send({ type: "pause" })
+    store.playhead.commit()
+
+    expect(handle.seeks).toEqual([30])
+
+    store.send({ type: "play-track", id: "b" })
+    store.playhead.preview(45)
+    store.send({ type: "pause" })
+    store.playhead.commit()
+
+    store.playhead.preview(50)
+    store.release()
+    expect(store.playhead.position()).toBe(0)
+    store.playhead.commit()
+
+    expect(handle.seeks).toEqual([30])
+    expect(store.playhead.position()).toBe(0)
+  })
+
+  test("Media Session keeps the playing position while a scrub previews", async () => {
+    vi.stubGlobal("MediaMetadata", class {})
+
+    const positions: (MediaPositionState | undefined)[] = []
+    const session = {
+      metadata: null,
+      playbackState: "none",
+      setActionHandler: () => {},
+      setPositionState: (state?: MediaPositionState) => positions.push(state),
+    } as unknown as MediaSession
+    const { store, strips } = setup({ mediaSession: session })
+    const handle = fakeHandle("a.mp3")
+
+    store.send({ type: "toggle" })
+    strips[0].plays[0].settle(ok(handle))
+    await tick()
+    handle.seek(toSeconds(12))
+    strips[0].emit({ kind: "file", name: "a.mp3", duration: toSeconds(200), playback: "playing" })
+    store.playhead.preview(90)
+    store.send({ type: "set-level", level: 0.5 })
+
+    expect(store.playhead.position()).toBe(90)
+    expect(positions.at(-1)).toMatchObject({ position: 12, duration: 200 })
+
+    vi.unstubAllGlobals()
+  })
+
+  test("nothing previews after a failure", () => {
+    const { store, strips } = setup()
+
+    store.send({ type: "toggle" })
+    strips[0].emit({ kind: "failed", source: "file", error: { kind: "unknown", message: "404" } })
+    store.playhead.preview(20)
+
+    expect(store.playhead.position()).toBe(0)
+  })
+})
+
 describe("the end of a track", () => {
   test("ended plays the next track inside the strip's listener", () => {
     const { store, strips } = setup()

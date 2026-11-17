@@ -727,18 +727,17 @@ function planTransport(
     case "seek":
       if (!STATUS_VIEW[at.status].seekable) return stay(NONE)
 
-      return stay({
-        kind: "seek",
-        to: toSeconds(
-          Math.min(
-            at.duration ?? Infinity,
-            Math.max(0, Number.isFinite(command.to) ? command.to : 0)
-          )
-        ),
-      })
+      return stay({ kind: "seek", to: seekTo(command.to, at.duration) })
     default:
       return command satisfies never
   }
+}
+
+/** A seek target clamped into [0, duration]. Not a number reads as 0; no upper bound while the duration is unknown. */
+export function seekTo(to: number, duration: Seconds | null): Seconds {
+  return toSeconds(
+    Math.min(duration ?? Infinity, Math.max(0, Number.isFinite(to) ? to : 0))
+  )
 }
 
 /**

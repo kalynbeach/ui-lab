@@ -11,7 +11,13 @@
  *
  * While a track plays, the store samples the file handle once per animation
  * frame and notifies; otherwise it samples on a seek, a track change, or a
- * status change. The bar's Progress indicator also eases between its steps
+ * status change.
+ *
+ * A scrub previews a seek: while someone drags the seek bar, position()
+ * reports the drag's target, so every readout shows it, and the track keeps
+ * playing where it is. commit() seeks there once. A scrub belongs to the
+ * track and the load it started on; when either changes it is dropped, so a
+ * drag that outlives its track never seeks the next one. The bar's Progress indicator also eases between its steps
  * with its CSS width transition, which Kevelle's reduced-motion rule
  * shortens to nothing.
  */
@@ -21,14 +27,26 @@ import * as React from "react"
 import type { Seconds } from "@/lib/audio/index"
 
 export interface Playhead {
-  /** Seconds into the current track at the last sample. The same value until the next notification. */
+  /** Seconds into the current track at the last sample, or a scrub's target. The same value until the next notification. */
   position(): Seconds
   subscribe(listener: () => void): () => void
+  /** Shows `to`, clamped into the track, without seeking. Nothing while the status cannot seek. */
+  preview(to: number): void
+  /** Seeks once to the previewed target, then clears the scrub. Nothing when no scrub stands. */
+  commit(): void
+  /** Clears the scrub without seeking. */
+  cancel(): void
 }
 
 /** A playhead that holds `position`, for the states workbench and tests. */
 export function stillPlayhead(position: Seconds): Playhead {
-  return { position: () => position, subscribe: () => () => {} }
+  return {
+    position: () => position,
+    subscribe: () => () => {},
+    preview() {},
+    commit() {},
+    cancel() {},
+  }
 }
 
 /**
