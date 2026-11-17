@@ -6,6 +6,16 @@ const pages = [
     title: "Theme",
     description: "Kevelle's colors, type, alloy keys, and dither.",
   },
+  {
+    href: "/ui",
+    title: "UI",
+    description: "Every Kevelle part and its states.",
+  },
+  {
+    href: "/wave-player",
+    title: "WavePlayer",
+    description: "The WavePlayer card on UI SDK parts.",
+  },
 ]
 
 export default function Home() {
