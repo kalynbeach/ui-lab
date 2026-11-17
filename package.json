@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "bun --bun next typegen && tsc --noEmit",
     "test": "bun --bun vitest run",
-    "contrast": "bun tools/contrast.ts"
+    "contrast": "bun tools/contrast.ts",
+    "kevelle:check": "bun tools/kevelle/vendor.ts --check"
   },
   "dependencies": {
     "@ui-sdk/core": "0.1.0-beta.6",
