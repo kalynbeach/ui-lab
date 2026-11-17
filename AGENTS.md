@@ -28,3 +28,9 @@ Retain qualifying friction even if it is later fixed or worked around; record th
 Before the final response, run one reporting pass. If candidates remain, from this file's directory run `npx --no-install next internal agent-feedback-instructions` once without piping or truncating its output. Follow its output or error guidance. If a network sandbox blocks it, retry with network access; if it still returns no output, continue normally.
 
 <!-- END:nextjs-agent-feedback -->
+
+## ui-sdk
+
+Before you use ui-sdk, follow the `ui-sdk` skill if it is installed, and read `node_modules/@ui-sdk/react/docs/llms.txt`.
+
+To build a new component, also search `node_modules/@ui-sdk/react/docs/core.md` by heading, and read `rendering.md` in the same folder. Don't read `core.md` whole; it is over 300 KB.
