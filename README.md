@@ -122,12 +122,12 @@ bun run wave-player:check http://localhost:3100
 
 The check visits `/wave-player` and each variant route at 1280 and 390 pixels wide. `ROUTES` at the top of `tools/wave-player/check.ts` lists what each route must have and must not have. For example, the bar has Progress and no Seek slider, and `/wave-player/playlist` has Playlist rows and no transport. A route fails when it answers with any status but 200, when it lacks a part that `ROUTES` requires, or when it shows a part that `ROUTES` rules out. The check reports SKIP only where `ROUTES` says the route lacks what that check needs.
 
-On every route, the check confirms that each control has a name, that Tab reaches every control, and that the page has no horizontal scroll. After each check, it fails if a closed tooltip is still drawn. Before anything plays, it stores muted settings, reloads the page, and reads the stored settings back. On a route with transport, it also confirms that Mute is pressed, and then it:
+On every route, the check confirms that each control has a name, that Tab reaches every control, and that the page has no horizontal scroll. After each check, and before it reloads the page in the settings check, it fails if a closed tooltip is still drawn. Before anything plays, it stores muted settings, reloads the page, and reads the stored settings back. On a route with transport, it also confirms that Mute is pressed, and then it:
 
 - plays, pauses, and confirms that the time and the screen hold while paused,
-- seeks with the pointer to a point far from where the track stands, and requires the time to land near that point,
-- seeks with Page Up or Page Down and presses Space on Seek,
-- presses Next track, then Previous track within the first 3 seconds, and requires each track to start from 0 and play past its first second,
+- where the route has a Seek slider, seeks with the pointer to a point far from where the track stands, and requires the time to land near that point,
+- where the route has a Seek slider, seeks with Page Up or Page Down, requires the time to move 10 seconds while paused, and presses Space on Seek,
+- presses Next track and requires the next sample track, then presses Previous track within the first 3 seconds, and requires each track to start from 0 and play past its first second,
 - changes the volume and the settings, and reloads the page to confirm that the settings persisted.
 
 Where the Playlist's rows show, it plays a row with its Play button, pauses it with Space on the row, and selects another row to confirm that selecting does not play. The Playlist route has no time readout, so there the check proves playback by the row's `aria-current`, its playing state and LED, the live region, and the Media Session, not by the time.

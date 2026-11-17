@@ -10,6 +10,7 @@ import { mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
+import { TRACKS } from "../../app/wave-player/tracks"
 import { DEFAULT_SETTINGS, parseSettings, serializeSettings } from "../../components/wave-player/settings"
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "")
@@ -39,6 +40,10 @@ const ROUTES: readonly Route[] = [
 ]
 
 const SETTINGS_KEY = "wave-player"
+// The sample tracks in playlist order. The check runs with Shuffle off.
+const TITLES: readonly string[] = TRACKS.map((track) => track.title)
+// Page Up and Page Down on Seek move the time by this many seconds.
+const PAGE_STEP = 10
 const SESSION = `wave-player-check-${process.pid}`
 const SHOTS = join(tmpdir(), `wave-player-check-${Date.now()}`)
 
@@ -254,7 +259,19 @@ async function reveal(present: (now: PlayerState) => boolean): Promise<boolean> 
 async function closePopups() {
   if (!Object.values(state().popups).includes("true")) return
   ab("press", "Escape")
-  await until(state, (s) => s.level === null, 2_000)
+  const open = (s: PlayerState) => s.level !== null || Object.values(s.popups).includes("true")
+  const after = await until(state, (s) => !open(s), 2_000)
+
+  expect(!open(after), "a popup stayed open after Escape")
+}
+
+// Tooltips that are closed and still drawn, once an exit animation has had
+// time to finish. A fast press can close a tooltip before the page renders it
+// open. It then stays drawn over its neighbors and takes their presses.
+async function noStrayTips() {
+  const stray = (await until(state, (s) => s.strayTips.length === 0, 1_000)).strayTips
+
+  expect(stray.length === 0, `a closed tooltip is still drawn: ${stray.join(", ")}`)
 }
 
 function shot(name: string) {
@@ -335,18 +352,31 @@ const CHECKS: readonly Check[] = [
         Seek: route.time === "Seek",
         Progress: route.time === "Progress",
         "Playlist rows": route.rows.includes(width),
+        "volume and settings": route.transport,
       }
-      const have = (s: PlayerState): Record<keyof typeof want, boolean> => ({
+      type Part = keyof typeof want
+      // Any sign of the part, which fails a route that rules it out.
+      const shows = (s: PlayerState): Record<Part, boolean> => ({
         Play: s.play !== null,
         "Previous track": s.previous,
         "Next track": s.next,
         screen: s.canvas,
         Seek: s.seek,
         Progress: s.progress,
+        "Playlist rows": s.rows.length > 0,
+        // Mute, Level, Shuffle, Repeat, and Remaining time, or a popup that could hold them.
+        "volume and settings":
+          [s.mute, s.level, s.shuffle, s.repeat, s.remaining].some((control) => control !== null) ||
+          Object.values(s.popups).some((popup) => popup !== null),
+      })
+      // The whole part, which a route that requires it must have. The volume
+      // and settings checks open the popups and require each control by name.
+      const whole = (s: PlayerState): Record<Part, boolean> => ({
+        ...shows(s),
         "Playlist rows": s.rows.length >= 3 && s.rows.every((row) => row.play !== null),
       })
-      const parts = Object.keys(want) as (keyof typeof want)[]
-      const wrong = (s: PlayerState) => parts.filter((part) => have(s)[part] !== want[part])
+      const parts = Object.keys(want) as Part[]
+      const wrong = (s: PlayerState) => parts.filter((part) => (want[part] ? !whole(s)[part] : shows(s)[part]))
       const now = await until(state, (s) => s.region && wrong(s).length === 0, 5_000)
       expect(now.region, "no WavePlayer region")
       const missing = wrong(now)
@@ -529,9 +559,19 @@ const CHECKS: readonly Check[] = [
       const sign = key === "PageUp" ? 1 : -1
       ab("press", key)
       const to = seconds((await until(state, (s) => seconds(s.time) !== from, 2_000)).time)
-      expect(to !== null && sign * (to - from) >= 5, `${key} moved time ${from}s -> ${to}s`)
+      await Bun.sleep(500)
+      const settled = state()
+      // One second of slack, since the readout shows whole seconds.
+      expect(
+        to !== null && Math.abs(sign * (to - from) - PAGE_STEP) <= 1,
+        `${key} moved time ${from}s -> ${to}s, not by ${PAGE_STEP}s`
+      )
+      expect(
+        settled.play !== "true" && seconds(settled.time) === to,
+        `after ${key}, Play reads aria-pressed=${settled.play} and time moved from ${to}s to ${seconds(settled.time)}s`
+      )
 
-      return `${key}: ${from}s -> ${to}s`
+      return `${key}: ${from}s -> ${to}s, still paused`
     },
   },
   {
@@ -561,10 +601,13 @@ const CHECKS: readonly Check[] = [
       const live = state().live
       expect(live.startsWith(NOW_PLAYING), `live region reads "${live}" while playing`)
       const first = live.slice(NOW_PLAYING.length)
+      const expected = TITLES[TITLES.indexOf(first) + 1]
+      expect(TITLES.includes(first) && expected !== undefined, `"${first}" is not a sample track with a track after it`)
       press("Next track")
       const changed = (await until(state, (s) => s.live !== live, 5_000)).live
       expect(changed.startsWith(NOW_PLAYING) && changed !== live, `the live region reads "${changed}" after Next track`)
       const second = changed.slice(NOW_PLAYING.length)
+      expect(second === expected, `Next track went from "${first}" to "${second}", not to "${expected}"`)
       const secondAt = await startsOver(second)
       // Previous restarts a track after its first 3 s, and goes back only before that.
       const pressedAt = seconds(state().time)
@@ -615,6 +658,8 @@ const CHECKS: readonly Check[] = [
       expect(state().remaining !== null, "found no Remaining time control")
       press("Remaining time")
       await Bun.sleep(300)
+      // The reload below would remove a stray tooltip before the runner looks for one.
+      await noStrayTips()
       expect(await reveal((s) => s.level !== null), "found no Level slider")
       const level = state().level
       await closePopups()
@@ -725,11 +770,8 @@ async function runRoute(route: Route, width: Width): Promise<Row[]> {
 
     try {
       const measured = await check.run(at)
-      // A fast press can close a tooltip before the page renders it open. It
-      // then stays drawn over its neighbors and takes their presses.
-      const stray = state().strayTips
 
-      expect(stray.length === 0, `a closed tooltip is still drawn: ${stray.join(", ")}`)
+      await noStrayTips()
       outcome = { result: "PASS", measured }
     } catch (error) {
       outcome = { result: "FAIL", measured: error instanceof Error ? error.message : String(error) }
