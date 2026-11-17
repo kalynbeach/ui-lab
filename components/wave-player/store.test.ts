@@ -159,6 +159,7 @@ function setup({
     resolve: (src) => new URL(src, "https://site.test/music/"),
     probeDuration: vi.fn(() => new Promise<Seconds | null>(() => {})),
     decodePeaks: vi.fn(() => new Promise<null>(() => {})),
+    preload: vi.fn(() => new Promise<void>(() => {})),
     frame: () => () => {},
     setTimer: () => () => {},
     report: vi.fn(),
@@ -710,6 +711,76 @@ describe("scrub", () => {
     store.playhead.preview(20)
 
     expect(store.playhead.position()).toBe(0)
+  })
+})
+
+describe("peaks and preload", () => {
+  const playing: SourceStatus = { kind: "file", name: "a.mp3", duration: toSeconds(200), playback: "playing" }
+
+  test("a seek bar's need decodes the current track's peaks before anything plays", () => {
+    const { store, env, station } = setup()
+
+    store.retain("peaks")
+
+    expect(vi.mocked(env.decodePeaks).mock.calls.map(([media]) => media)).toEqual([
+      new URL("https://site.test/a.mp3"),
+    ])
+    expect(station.openStrip).not.toHaveBeenCalled()
+  })
+
+  test("while a track plays, the track Next plays is preloaded once", async () => {
+    const { store, strips, env } = setup()
+    let done = () => {}
+    vi.mocked(env.preload).mockImplementation(() => new Promise<void>((resolve) => (done = resolve)))
+
+    store.send({ type: "toggle" })
+    expect(env.preload).not.toHaveBeenCalled()
+
+    strips[0].emit(playing)
+    expect(vi.mocked(env.preload).mock.calls.map(([url]) => url)).toEqual([new URL("https://site.test/b.mp3")])
+
+    done()
+    await tick()
+    strips[0].notify()
+    store.send({ type: "set-level", level: 0.5 })
+
+    expect(env.preload).toHaveBeenCalledOnce()
+  })
+
+  test("a change of the next track aborts the preload and warms the new one", () => {
+    const { store, strips, env } = setup()
+
+    store.send({ type: "toggle" })
+    strips[0].emit(playing)
+    store.send({ type: "set-repeat", repeat: "all" })
+    store.send({ type: "play-track", id: "c" })
+    strips[0].emit({ ...playing, name: "c.mp3" })
+
+    const [[, first], [second]] = vi.mocked(env.preload).mock.calls
+
+    expect(first.aborted).toBe(true)
+    expect(second).toEqual(new URL("https://site.test/a.mp3"))
+  })
+
+  test("repeat one preloads nothing", () => {
+    const { store, strips, env } = setup()
+
+    store.send({ type: "set-repeat", repeat: "one" })
+    store.send({ type: "toggle" })
+    strips[0].emit(playing)
+
+    expect(env.preload).not.toHaveBeenCalled()
+  })
+
+  test("a person's file is never preloaded", () => {
+    const { store, strips, env } = setup({ tracks: TRACKS.slice(0, 1) })
+
+    store.addFiles([new File(["x"], "two.mp3", { type: "audio/mpeg" })])
+    store.send({ type: "toggle" })
+    strips[0].emit(playing)
+
+    expect(store.getSnapshot().canNext).toBe(true)
+    expect(env.preload).not.toHaveBeenCalled()
   })
 })
 

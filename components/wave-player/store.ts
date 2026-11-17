@@ -40,12 +40,13 @@ import {
   type StripOptions,
 } from "@/lib/audio/index"
 
-import { decodePeaks, probeDuration } from "./loaders"
+import { decodePeaks, preload, probeDuration } from "./loaders"
 import {
   deriveState,
   initialIntent,
   loadKey,
   planCommand,
+  peekNext,
   planEnded,
   reconcilePlaylist,
   reseedIntent,
@@ -165,6 +166,8 @@ export type PlayerEnv = {
     media: File | URL,
     signal: AbortSignal
   ) => Promise<Peaks | null>
+  /** Warms a site track that may play next. Best effort; resolves when it is done or aborted. */
+  readonly preload: (url: URL, signal: AbortSignal) => Promise<void>
   /** requestAnimationFrame. Returns a cancel. */
   readonly frame: (callback: () => void) => () => void
   /** setTimeout. Returns a cancel. */
@@ -187,6 +190,7 @@ export function browserEnv(settingsKey?: string): PlayerEnv {
     resolve: (src) => new URL(src, location.href),
     probeDuration,
     decodePeaks,
+    preload,
     frame(callback) {
       const id = requestAnimationFrame(callback)
 
@@ -253,7 +257,8 @@ export function createPlayerStore(
   const heard = new Map<string, Seconds>()
   const probed = new Map<string, Seconds>()
   const decoded = new Map<string, Peaks>()
-  const failedLoads = new Set<string>()
+  /** Loads that ran to an end and must not run again: failed probes and decodes, and finished preloads. */
+  const settled = new Set<string>()
   const running = new Map<string, () => void>()
   const needs: Record<Need, number> = { durations: 0, current: 0, peaks: 0 }
   let position = toSeconds(0)
@@ -562,7 +567,8 @@ export function createPlayerStore(
         current: needs.current > 0,
         peaks: needs.peaks > 0,
       },
-      failedLoads
+      settled,
+      peekNext(playlist, intent)
     )
 
     const keys = new Set(wanted.map(loadKey))
@@ -582,9 +588,8 @@ export function createPlayerStore(
     // One probe at a time, in priority order.
     if (probe && !probing) start(probe)
 
-    const peaks = wanted.find((load) => load.kind === "peaks")
-
-    if (peaks && !running.has(loadKey(peaks))) start(peaks)
+    for (const load of wanted)
+      if (load.kind !== "duration" && !running.has(loadKey(load))) start(load)
   }
 
   function start(load: Load): void {
@@ -620,14 +625,14 @@ export function createPlayerStore(
         if (!finish()) return
 
         controller.abort()
-        failedLoads.add(key)
+        settled.add(key)
         commit()
       }, PROBE_TIMEOUT_MS)
 
       void env.probeDuration(source, controller.signal).then((duration) => {
         if (!finish()) return
 
-        if (duration === null) failedLoads.add(key)
+        if (duration === null) settled.add(key)
         else probed.set(load.id, duration)
 
         commit()
@@ -636,10 +641,19 @@ export function createPlayerStore(
       return
     }
 
+    if (load.kind === "preload") {
+      if (source instanceof URL)
+        void env.preload(source, controller.signal).then(() => {
+          if (finish()) settled.add(key)
+        })
+
+      return
+    }
+
     void env.decodePeaks(source, controller.signal).then((peaks) => {
       if (!finish()) return
 
-      if (peaks === null) failedLoads.add(key)
+      if (peaks === null) settled.add(key)
       else decoded.set(load.id, peaks)
 
       commit()
@@ -652,12 +666,12 @@ export function createPlayerStore(
    * be a different file, so nothing learned from the old one applies.
    */
   function forget(id: string): void {
-    for (const kind of ["duration", "peaks"] as const) {
+    for (const kind of ["duration", "peaks", "preload"] as const) {
       const key = loadKey({ kind, id })
 
       running.get(key)?.()
       running.delete(key)
-      failedLoads.delete(key)
+      settled.delete(key)
     }
 
     heard.delete(id)

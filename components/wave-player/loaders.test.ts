@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
 
-import { probeDuration } from "./loaders"
+import { preload, probeDuration } from "./loaders"
 
 // jsdom has no object URLs.
 function objectUrls(create: (file: Blob) => string, revoke: (url: string) => void) {
@@ -49,5 +49,26 @@ describe("probeDuration", () => {
 
     await expect(probe).resolves.toBeNull()
     expect(create).not.toHaveBeenCalled()
+  })
+})
+
+describe("preload", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  test("loads a muted element that never plays, and releases it when aborted", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play")
+    const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {})
+    const muted = vi.spyOn(HTMLMediaElement.prototype, "muted", "set")
+    const controller = new AbortController()
+    const warming = preload(new URL("https://site.test/b.mp3"), controller.signal)
+
+    expect(muted).toHaveBeenCalledWith(true)
+    expect(load).not.toHaveBeenCalled()
+
+    controller.abort()
+    await warming
+
+    expect(load).toHaveBeenCalledOnce()
+    expect(play).not.toHaveBeenCalled()
   })
 })

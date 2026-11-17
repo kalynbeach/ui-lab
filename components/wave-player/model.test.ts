@@ -20,7 +20,14 @@ import {
   type StoreInputs,
 } from "./model"
 import { toPeaks } from "./peaks"
-import { parsePlaylist, type Playlist, type WavePlayerTrack } from "./playlist"
+import {
+  joinPlaylist,
+  parseFiles,
+  parsePlaylist,
+  type Playlist,
+  type TrackId,
+  type WavePlayerTrack,
+} from "./playlist"
 import { currentOf } from "./queue"
 import type { Repeat } from "./settings"
 
@@ -721,31 +728,73 @@ describe("deriveState", () => {
 
 describe("wantedLoads", () => {
   const all = { durations: true, current: true, peaks: true }
+  const peaksOnly = { durations: false, current: false, peaks: true }
+  const nothing = { durations: false, current: false, peaks: false }
 
   test("probes the idle current track first, then the Playlist's other tracks", () => {
     const state = deriveState(inputs({ current: "b" }), null)
 
-    expect(wantedLoads(state, all, new Set())).toEqual([
+    expect(wantedLoads(state, { ...all, peaks: false }, new Set(), null)).toEqual([
       { kind: "duration", id: "b" },
       { kind: "duration", id: "a" },
       { kind: "duration", id: "c" },
     ])
   })
 
-  test("asks for peaks only once playback has run, and skips loads that failed", () => {
-    const idle = deriveState(inputs({ station: running }), null)
+  test("asks for the current track's peaks before the first play, and skips loads that settled", () => {
+    const idle = deriveState(inputs(), null)
     const playing = deriveState(inputs({ station: running, source: file("playing") }), null)
 
-    expect(wantedLoads(idle, { durations: false, current: false, peaks: true }, new Set())).toEqual([])
-    expect(wantedLoads(playing, all, new Set(["duration:b"]))).toEqual([
+    expect(wantedLoads(idle, peaksOnly, new Set(), null)).toEqual([{ kind: "peaks", id: "a" }])
+    expect(wantedLoads(playing, all, new Set(["duration:b"]), null)).toEqual([
       { kind: "duration", id: "c" },
       { kind: "peaks", id: "a" },
     ])
+    expect(wantedLoads(idle, peaksOnly, new Set(["peaks:a"]), null)).toEqual([])
+  })
+
+  test("preloads the track Next plays while the current one plays, whatever the views need", () => {
+    const playing = deriveState(inputs({ station: running, source: file("playing") }), null)
+
+    expect(wantedLoads(playing, nothing, new Set(), "b" as TrackId)).toEqual([
+      { kind: "preload", id: "b" },
+    ])
+    expect(wantedLoads(playing, nothing, new Set(["preload:b"]), "b" as TrackId)).toEqual([])
+  })
+
+  test.each<[string, Partial<StoreInputs>]>([
+    ["idle", {}],
+    ["paused", { station: running, source: file("paused") }],
+  ])("preloads nothing while %s", (_, overrides) => {
+    expect(wantedLoads(deriveState(inputs(overrides), null), nothing, new Set(), "b" as TrackId)).toEqual([])
+  })
+
+  test("preloads nothing under repeat one, or with no next track", () => {
+    const looping = deriveState(
+      {
+        ...inputs({ station: running, source: file("playing") }),
+        intent: after([{ type: "set-repeat", repeat: "one" }]),
+      },
+      null
+    )
+    const playing = deriveState(inputs({ station: running, source: file("playing") }), null)
+
+    expect(wantedLoads(looping, nothing, new Set(), "b" as TrackId)).toEqual([])
+    expect(wantedLoads(playing, nothing, new Set(), null)).toEqual([])
+  })
+
+  test("never preloads a person's file", () => {
+    const [own] = parseFiles([new File(["x"], "own.mp3", { type: "audio/mpeg" })], 0).tracks
+    const list = joinPlaylist(parsePlaylist(TRACKS.slice(0, 1)).playlist, [own])
+    const state = deriveState(inputs({ playlist: list, station: running, source: file("playing") }), null)
+
+    expect(state.canNext).toBe(true)
+    expect(wantedLoads(state, nothing, new Set(), own.id)).toEqual([])
   })
 
   test("runs nothing nobody needs", () => {
     const state = deriveState(inputs({ source: file("playing") }), null)
 
-    expect(wantedLoads(state, { durations: false, current: false, peaks: false }, new Set())).toEqual([])
+    expect(wantedLoads(state, nothing, new Set(), null)).toEqual([])
   })
 })

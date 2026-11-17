@@ -1,7 +1,8 @@
 /*
- * The two background loads the store runs for tracks the site gave no
- * duration or peaks. Both take an AbortSignal and resolve to null on any
- * failure, abort included, so a load never rejects. The store times probes
+ * The background loads the store runs: a duration probe or a peaks decode
+ * for a track the site gave neither, and a preload of the track Next plays.
+ * Each takes an AbortSignal and never rejects. The probe and the decode
+ * resolve to null on any failure, abort included. The store times probes
  * out and caches a null per track, so a broken URL is asked for once.
  *
  * For a site track, both request the file the way the playing element does,
@@ -68,6 +69,42 @@ export function probeDuration(
     element.addEventListener("error", failed)
     signal.addEventListener("abort", failed)
     element.src = src
+  })
+}
+
+/**
+ * Warms the browser's cache for a site track that may play next, through a
+ * detached, muted element that never plays and never joins the audio graph.
+ * Best effort: the strip builds its own element, and whether it reuses what
+ * this one fetched is the browser's choice. Resolves once the element can
+ * play through, fails, or the signal aborts, and releases it either way.
+ */
+export function preload(url: URL, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve()
+
+      return
+    }
+
+    const element = new Audio()
+
+    const finish = () => {
+      element.removeEventListener("canplaythrough", finish)
+      element.removeEventListener("error", finish)
+      signal.removeEventListener("abort", finish)
+      element.removeAttribute("src")
+      element.load()
+      resolve()
+    }
+
+    element.muted = true
+    element.preload = "auto"
+    element.crossOrigin = "anonymous"
+    element.addEventListener("canplaythrough", finish)
+    element.addEventListener("error", finish)
+    signal.addEventListener("abort", finish)
+    element.src = url.href
   })
 }
 

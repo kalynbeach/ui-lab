@@ -28,8 +28,6 @@ export type StatusView = {
   readonly times: boolean
   /** A seek applies now, or once the track loads. */
   readonly seekable: boolean
-  /** Playback has run for this track, so the block may decode its peaks. */
-  readonly started: boolean
   /** Media Session's playbackState. */
   readonly session: MediaSessionPlaybackState
   /**
@@ -53,7 +51,6 @@ export const STATUS_VIEW = {
     description: null,
     times: true,
     seekable: true,
-    started: false,
     session: "none",
     overlay: null,
     hold: "still",
@@ -64,7 +61,6 @@ export const STATUS_VIEW = {
     description: null,
     times: true,
     seekable: true,
-    started: false,
     session: "playing",
     overlay: "spinner",
     hold: "still",
@@ -75,7 +71,6 @@ export const STATUS_VIEW = {
     description: null,
     times: true,
     seekable: true,
-    started: true,
     session: "playing",
     overlay: null,
     hold: null,
@@ -86,7 +81,6 @@ export const STATUS_VIEW = {
     description: null,
     times: true,
     seekable: true,
-    started: true,
     session: "paused",
     overlay: null,
     hold: "frozen",
@@ -97,7 +91,6 @@ export const STATUS_VIEW = {
     description: null,
     times: true,
     seekable: true,
-    started: false,
     session: "paused",
     overlay: null,
     hold: "frozen",
@@ -108,7 +101,6 @@ export const STATUS_VIEW = {
     description: "Plays the track again from the start.",
     times: true,
     seekable: true,
-    started: true,
     session: "paused",
     overlay: null,
     hold: "still",
@@ -119,7 +111,6 @@ export const STATUS_VIEW = {
     description: "Tries again.",
     times: false,
     seekable: false,
-    started: false,
     session: "none",
     overlay: "failure",
     hold: "still",

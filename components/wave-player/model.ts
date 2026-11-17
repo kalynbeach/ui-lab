@@ -806,10 +806,11 @@ export function startsAudio(effect: Effect): boolean {
   )
 }
 
-/** A duration probe or a peaks decode for one track. */
+/** A duration probe, a peaks decode, or a preload of the track Next plays. */
 export type Load =
   | { readonly kind: "duration"; readonly id: string }
   | { readonly kind: "peaks"; readonly id: string }
+  | { readonly kind: "preload"; readonly id: string }
 
 /**
  * What the mounted views need. "durations": every track's duration (the
@@ -820,7 +821,7 @@ export type Need = "durations" | "current" | "peaks"
 
 export type Demand = Readonly<Record<Need, boolean>>
 
-/** "duration:<id>" or "peaks:<id>": the key for running loads and for loads that failed. */
+/** "<kind>:<id>": the key for running loads and for loads that settled. */
 export function loadKey(load: Load): string {
   return `${load.kind}:${load.id}`
 }
@@ -833,14 +834,20 @@ export function loadKey(load: Load): string {
  *   durations  the current track's while it sits idle without one (once
  *              loading, the element reports it), then, for the Playlist,
  *              every other track without one
- *   peaks      the current track's, without peaks, once playback has run
+ *   peaks      the current track's, without peaks, whenever a seek bar
+ *              shows it, before the first play too
+ *   preload    `next`, the track Next plays (peekNext()), while the current
+ *              one plays, except under repeat one. Only a site track: a
+ *              person's file is already on the device.
  *
- * A load that failed or timed out stays failed for the page.
+ * A settled load (one that failed or timed out, or a finished preload) does
+ * not run again for the page.
  */
 export function wantedLoads(
   state: PlayerState,
   demand: Demand,
-  failed: ReadonlySet<string>
+  settled: ReadonlySet<string>,
+  next: TrackId | null
 ): readonly Load[] {
   const current = state.current
   const loads: Load[] = []
@@ -859,13 +866,17 @@ export function wantedLoads(
         loads.push({ kind: "duration", id: track.id })
     })
 
-  if (
-    current &&
-    demand.peaks &&
-    current.peaks === null &&
-    STATUS_VIEW[state.status.kind].started
-  )
+  if (current && demand.peaks && current.peaks === null)
     loads.push({ kind: "peaks", id: current.track.id })
 
-  return loads.filter((load) => !failed.has(loadKey(load)))
+  if (
+    next !== null &&
+    next !== current?.track.id &&
+    state.status.kind === "playing" &&
+    state.settings.repeat !== "one" &&
+    state.tracks.some((track) => track.id === next && track.source === "site")
+  )
+    loads.push({ kind: "preload", id: next })
+
+  return loads.filter((load) => !settled.has(loadKey(load)))
 }
