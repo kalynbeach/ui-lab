@@ -2,9 +2,12 @@
 // the variant's route under /wave-player. Server pages call `render`, so this
 // module stays free of "use client".
 
+import Link from "next/link"
 import * as React from "react"
 
+import { WavePlayerBar } from "@/components/wave-player/bar"
 import { WavePlayerCard } from "@/components/wave-player/card"
+import { WavePlayerMini } from "@/components/wave-player/mini"
 import { FRAME_MOTION } from "@/components/wave-player/morph"
 import { WavePlayerPlaylist } from "@/components/wave-player/playlist-view"
 import { WavePlayerWithPlaylist } from "@/components/wave-player/with-playlist"
@@ -17,6 +20,20 @@ export type WavePlayerVariant = {
 
 export const VARIANTS = [
   { id: "card", label: "Card", render: () => <WavePlayerCard /> },
+  {
+    id: "mini",
+    label: "Mini",
+    render: () => <WavePlayerMini expand={<Link href="/wave-player?variant=card" />} />,
+  },
+  {
+    id: "bar",
+    label: "Bar",
+    render: () => (
+      <div className="w-full max-w-2xl">
+        <WavePlayerBar />
+      </div>
+    ),
+  },
   { id: "with-playlist", label: "Card + Playlist", render: () => <WavePlayerWithPlaylist /> },
   { id: "playlist", label: "Playlist", render: () => <Playlist /> },
 ] as const satisfies readonly WavePlayerVariant[]
