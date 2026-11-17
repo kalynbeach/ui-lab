@@ -102,10 +102,12 @@ const FAILED = {
   unsupported: { kind: "failed", reason: "unsupported" },
 } as const satisfies Record<FailReason, PlayerStatus>
 
-/** A track as the views show it. No src and no raw peaks; those stay in the store. */
+/** A track as the views show it. No src, File, or raw peaks; those stay in the store. */
 export type TrackInfo = {
   readonly id: TrackId
   readonly title: string
+  /** "file": a person added it with addFiles(), so it is theirs, not the site's. */
+  readonly source: "site" | "file"
   readonly artist: string | null
   readonly record: string | null
   readonly tag: string | null
@@ -220,6 +222,7 @@ export function deriveState(
     const row: TrackInfo = {
       id: track.id,
       title: track.title,
+      source: track.source.kind,
       artist: track.artist,
       record: track.record,
       tag: track.tag,
@@ -299,6 +302,7 @@ function sameRow(a: TrackInfo, b: TrackInfo): boolean {
   return (
     a.id === b.id &&
     a.title === b.title &&
+    a.source === b.source &&
     a.artist === b.artist &&
     a.record === b.record &&
     a.tag === b.tag &&

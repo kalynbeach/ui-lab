@@ -147,8 +147,8 @@ function setup({
     support: () => support,
     mediaSession: () => mediaSession,
     resolve: (src) => new URL(src, "https://site.test/music/"),
-    probeDuration: () => new Promise(() => {}),
-    decodePeaks: () => new Promise(() => {}),
+    probeDuration: vi.fn(() => new Promise<Seconds | null>(() => {})),
+    decodePeaks: vi.fn(() => new Promise<null>(() => {})),
     frame: () => () => {},
     setTimer: () => () => {},
     report: vi.fn(),
@@ -373,6 +373,80 @@ describe("output", () => {
 
     expect(strips[0].plays[2].spec).toMatchObject({ loop: true })
     expect(third.setLoop).toHaveBeenLastCalledWith(false)
+  })
+})
+
+describe("a person's files", () => {
+  const audio = (name: string) => new File(["x"], name, { type: "audio/mpeg" })
+
+  test("addFiles adds the files after the site's tracks, selects the first, and plays nothing", () => {
+    const { store, station } = setup()
+
+    const added = store.addFiles([audio("Tide pool.mp3"), new File(["x"], "notes.txt", { type: "text/plain" })])
+
+    expect(added.issues).toEqual([{ kind: "unsupported-file", name: "notes.txt" }])
+    expect(station.openStrip).not.toHaveBeenCalled()
+    expect(store.getSnapshot().tracks.map((track) => [track.title, track.source])).toEqual([
+      ["Low tide", "site"],
+      ["Undertow", "site"],
+      ["Shoal", "site"],
+      ["Tide pool", "file"],
+    ])
+    expect(store.getSnapshot().selected).toBe(added.tracks[0].id)
+    expect(store.getSnapshot().current?.track.id).toBe("a")
+  })
+
+  test("the strip plays the File itself", () => {
+    const { store, strips } = setup()
+    const file = audio("Tide pool.mp3")
+    const [track] = store.addFiles([file]).tracks
+
+    store.send({ type: "play-track", id: track.id })
+
+    expect(strips[0].plays[0].spec).toEqual({ kind: "file", file, loop: false })
+  })
+
+  test("an empty player's first file becomes current and idle", () => {
+    const { store, station } = setup({ tracks: [] })
+
+    store.addFiles([audio("one.mp3")])
+
+    expect(store.getSnapshot().current?.track.title).toBe("one")
+    expect(store.getSnapshot().status).toEqual({ kind: "idle" })
+    expect(station.openStrip).not.toHaveBeenCalled()
+  })
+
+  test("adding files while a track plays neither stops nor restarts it", () => {
+    const { store, strips } = setup()
+
+    store.send({ type: "toggle" })
+    store.addFiles([audio("one.mp3")])
+
+    expect(strips[0].plays).toHaveLength(1)
+    expect(strips[0].stop).not.toHaveBeenCalled()
+    expect(store.getSnapshot().current?.track.id).toBe("a")
+  })
+
+  test("a new site list keeps the files, and ids are never reused", () => {
+    const { store } = setup()
+
+    const first = store.addFiles([audio("one.mp3")]).tracks[0].id
+    store.setTracks(TRACKS.slice(0, 1))
+    expect(store.getSnapshot().tracks.map((track) => track.title)).toEqual(["Low tide", "one"])
+    const second = store.addFiles([audio("two.mp3")]).tracks[0].id
+
+    expect(second).not.toBe(first)
+    expect(store.getSnapshot().tracks.map((track) => track.title)).toEqual(["Low tide", "one", "two"])
+  })
+
+  test("a file's duration probe reads the File, not a URL", () => {
+    const { store, env } = setup({ tracks: [] })
+    const file = audio("one.mp3")
+
+    store.addFiles([file])
+    store.retain("current")
+
+    expect(vi.mocked(env.probeDuration).mock.calls.map(([media]) => media)).toEqual([file])
   })
 })
 

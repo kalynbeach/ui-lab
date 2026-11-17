@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { parsePlaylist, type WavePlayerTrack } from "./playlist"
+import { joinPlaylist, parseFiles, parsePlaylist, type WavePlayerTrack } from "./playlist"
 
 describe("parsePlaylist", () => {
   test("checks a good list, trims text, and fills absent fields with null", () => {
@@ -11,8 +11,8 @@ describe("parsePlaylist", () => {
 
     expect(issues).toEqual([])
     expect(playlist.tracks).toEqual([
-      { id: "a", title: "Low tide", src: "/a.mp3", artist: "Kevelle", record: null, tag: null, duration: 120, peaks: null, look: null },
-      { id: "b", title: "Undertow", src: "https://cdn.test/b.mp3", artist: null, record: "Tides", tag: "Sample", duration: null, peaks: null, look: null },
+      { id: "a", title: "Low tide", source: { kind: "site", src: "/a.mp3" }, artist: "Kevelle", record: null, tag: null, duration: 120, peaks: null, look: null },
+      { id: "b", title: "Undertow", source: { kind: "site", src: "https://cdn.test/b.mp3" }, artist: null, record: "Tides", tag: "Sample", duration: null, peaks: null, look: null },
     ])
     expect(playlist.indexOf.get("b")).toBe(1)
   })
@@ -25,6 +25,7 @@ describe("parsePlaylist", () => {
       { id: "a", title: "Low tide", src: "/a.mp3" },
       { id: "a", title: "Again", src: "/again.mp3" },
       { id: "z", title: "Bad src", src: "http://[::1" },
+      { id: "file:1", title: "Reserved", src: "/r.mp3" },
     ])
 
     expect(playlist.tracks.map((track) => track.title)).toEqual(["Low tide"])
@@ -34,6 +35,7 @@ describe("parsePlaylist", () => {
       { kind: "missing-field", at: 2, field: "src" },
       { kind: "duplicate-id", at: 4, id: "a" },
       { kind: "bad-src", id: "z" },
+      { kind: "reserved-id", at: 6, id: "file:1" },
     ])
   })
 
@@ -82,5 +84,46 @@ describe("parsePlaylist", () => {
       playlist: { tracks: [], indexOf: new Map(), key: "[]" },
       issues: [{ kind: "missing-field", at: 0, field: "id" }],
     })
+  })
+})
+
+describe("parseFiles", () => {
+  const file = (name: string, type: string) => new File(["x"], name, { type })
+
+  test("accepts what the strip plays: an audio type, or a known audio extension", () => {
+    const { tracks, issues } = parseFiles(
+      [
+        file("Low tide.mp3", "audio/mpeg"),
+        file("take", "audio/wav"),
+        file("Shoal.FLAC", ""),
+        file("notes.txt", "text/plain"),
+        file("demo", ""),
+      ],
+      0
+    )
+
+    expect(tracks.map((track) => [track.id, track.title, track.source.kind])).toEqual([
+      ["file:0", "Low tide", "file"],
+      ["file:1", "take", "file"],
+      ["file:2", "Shoal", "file"],
+    ])
+    expect(issues).toEqual([
+      { kind: "unsupported-file", name: "notes.txt" },
+      { kind: "unsupported-file", name: "demo" },
+    ])
+  })
+
+  test("numbers ids from where the last call stopped", () => {
+    expect(parseFiles([file("a.mp3", "audio/mpeg")], 4).tracks[0].id).toBe("file:4")
+  })
+
+  test("a joined playlist lists the files after the site's tracks, and its key names them", () => {
+    const site = parsePlaylist([{ id: "a", title: "A", src: "/a.mp3" }]).playlist
+    const files = parseFiles([file("b.mp3", "audio/mpeg"), file("c.mp3", "audio/mpeg")], 0).tracks
+    const joined = joinPlaylist(site, files)
+
+    expect(joined.tracks.map((track) => track.id)).toEqual(["a", "file:0", "file:1"])
+    expect(joined.indexOf.get("file:1")).toBe(2)
+    expect(joined.key).not.toBe(joinPlaylist(site, files.slice(0, 1)).key)
   })
 })

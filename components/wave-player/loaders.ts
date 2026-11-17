@@ -4,9 +4,10 @@
  * failure, abort included, so a load never rejects. The store times probes
  * out and caches a null per track, so a broken URL is asked for once.
  *
- * Both request the file the way the playing element does, CORS with
- * same-origin credentials, so the browser can answer them from one cache
- * entry.
+ * For a site track, both request the file the way the playing element does,
+ * CORS with same-origin credentials, so the browser can answer them from one
+ * cache entry. A person's File is read where it is: the probe through an
+ * object URL it revokes when it finishes, the decode from its bytes.
  */
 
 import { toSeconds, type Seconds } from "@/lib/audio/index"
@@ -26,7 +27,7 @@ const DECODE_RATES = [8000, 22050, 44100] as const
  * never plays and never joins the audio graph.
  */
 export function probeDuration(
-  url: URL,
+  media: File | URL,
   signal: AbortSignal
 ): Promise<Seconds | null> {
   return new Promise((resolve) => {
@@ -37,6 +38,7 @@ export function probeDuration(
     }
 
     const element = new Audio()
+    const src = media instanceof URL ? media.href : URL.createObjectURL(media)
 
     const finish = (value: Seconds | null) => {
       element.removeEventListener("loadedmetadata", loaded)
@@ -45,6 +47,9 @@ export function probeDuration(
       // Dropping src and loading again closes the element's connection.
       element.removeAttribute("src")
       element.load()
+
+      if (!(media instanceof URL)) URL.revokeObjectURL(src)
+
       resolve(value)
     }
 
@@ -62,7 +67,7 @@ export function probeDuration(
     element.addEventListener("loadedmetadata", loaded)
     element.addEventListener("error", failed)
     signal.addEventListener("abort", failed)
-    element.src = url.href
+    element.src = src
   })
 }
 
@@ -73,19 +78,13 @@ export function probeDuration(
  * detaches the buffer it reads.
  */
 export async function decodePeaks(
-  url: URL,
+  media: File | URL,
   signal: AbortSignal
 ): Promise<Peaks | null> {
   try {
-    const response = await fetch(url, {
-      signal,
-      mode: "cors",
-      credentials: "same-origin",
-    })
+    const bytes = await read(media, signal)
 
-    if (!response.ok) return null
-
-    const bytes = await response.arrayBuffer()
+    if (!bytes || signal.aborted) return null
 
     for (const sampleRate of DECODE_RATES) {
       let context: OfflineAudioContext
@@ -116,4 +115,19 @@ export async function decodePeaks(
   } catch {
     return null
   }
+}
+
+async function read(
+  media: File | URL,
+  signal: AbortSignal
+): Promise<ArrayBuffer | null> {
+  if (!(media instanceof URL)) return media.arrayBuffer()
+
+  const response = await fetch(media, {
+    signal,
+    mode: "cors",
+    credentials: "same-origin",
+  })
+
+  return response.ok ? response.arrayBuffer() : null
 }

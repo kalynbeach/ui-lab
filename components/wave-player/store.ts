@@ -67,8 +67,12 @@ import {
 import type { Peaks } from "./peaks"
 import type { Playhead } from "./playhead"
 import {
+  joinPlaylist,
+  parseFiles,
   parsePlaylist,
+  type AddedFiles,
   type PlaylistIssue,
+  type Source,
   type Track,
   type TrackId,
   type WavePlayerTrack,
@@ -105,17 +109,26 @@ export type PlayerStore = {
    */
   readonly send: (command: PlayerCommand) => void
   /**
-   * Replaces the playlist. The same content changes nothing. The current
-   * track survives by id; when the list drops it, the strip stops and the
-   * first track becomes current, idle.
+   * Replaces the site's tracks. The same content changes nothing. A
+   * person's files stay after them. The current track survives by id; when
+   * the list drops it, the strip stops and the first track becomes current,
+   * idle.
    */
   readonly setTracks: (tracks: readonly WavePlayerTrack[]) => void
+  /**
+   * Adds a person's files after every track and selects the first one it
+   * accepted. Never plays: the row's Play does, from its own gesture. A
+   * file that is not audio comes back as an issue. The files live as long
+   * as the store.
+   */
+  readonly addFiles: (files: readonly File[]) => AddedFiles
   /** A mounted view's need, held until the returned release runs. Loads run only while someone needs them. */
   readonly retain: (need: Need) => () => void
   /**
    * Closes the strip, clears Media Session, aborts loads, and stops the
-   * frame loop. Keeps the playlist, the index, the caches, listeners, and
-   * needs, and the next gesture opens everything again. Idempotent.
+   * frame loop. Keeps the playlist, a person's files, the intent, the
+   * caches, listeners, and needs, and the next gesture opens everything
+   * again. Idempotent.
    */
   readonly release: () => void
 }
@@ -128,10 +141,13 @@ export type PlayerEnv = {
   /** A track's src against the page. */
   readonly resolve: (src: string) => URL
   readonly probeDuration: (
-    url: URL,
+    media: File | URL,
     signal: AbortSignal
   ) => Promise<Seconds | null>
-  readonly decodePeaks: (url: URL, signal: AbortSignal) => Promise<Peaks | null>
+  readonly decodePeaks: (
+    media: File | URL,
+    signal: AbortSignal
+  ) => Promise<Peaks | null>
   /** requestAnimationFrame. Returns a cancel. */
   readonly frame: (callback: () => void) => () => void
   /** setTimeout. Returns a cancel. */
@@ -180,7 +196,14 @@ export function createPlayerStore(
   const listeners = new Set<() => void>()
   const positionListeners = new Set<() => void>()
 
-  let { playlist } = parsePlaylist(tracks)
+  /** The site's tracks, as the last setTracks() gave them. */
+  let site = parsePlaylist(tracks).playlist
+  /** A person's files, in the order they arrived. */
+  let files: readonly Track[] = []
+  /** How many files were accepted, so a file id is never reused. */
+  let fileCount = 0
+  /** The site's tracks, then the files. Every reader uses this. */
+  let playlist = site
   /** The playlist key whose issues were reported. */
   let reported: string | null = null
   /** Written by send(), the strip listener, and setTracks(), each through a plan. */
@@ -312,6 +335,11 @@ export function createPlayerStore(
     }
   }
 
+  /** What the strip and the loaders read: a site track's URL against the page, or the person's File itself. */
+  function media(source: Source): File | URL {
+    return source.kind === "site" ? env.resolve(source.src) : source.file
+  }
+
   function currentTrack(): Track | null {
     const id = currentOf(intent.queue)
     const at = id === null ? undefined : playlist.indexOf.get(id)
@@ -430,7 +458,7 @@ export function createPlayerStore(
     void audio.strip
       .play({
         kind: "file",
-        file: env.resolve(track.src),
+        file: media(track.source),
         loop: intent.settings.repeat === "one",
       })
       .then((result) => {
@@ -522,7 +550,7 @@ export function createPlayerStore(
 
     if (at === undefined) return
 
-    const url = env.resolve(playlist.tracks[at].src)
+    const source = media(playlist.tracks[at].source)
     const controller = new AbortController()
     let stopTimer = () => {}
 
@@ -553,7 +581,7 @@ export function createPlayerStore(
         commit()
       }, PROBE_TIMEOUT_MS)
 
-      void env.probeDuration(url, controller.signal).then((duration) => {
+      void env.probeDuration(source, controller.signal).then((duration) => {
         if (!finish()) return
 
         if (duration === null) failedLoads.add(key)
@@ -565,7 +593,7 @@ export function createPlayerStore(
       return
     }
 
-    void env.decodePeaks(url, controller.signal).then((peaks) => {
+    void env.decodePeaks(source, controller.signal).then((peaks) => {
       if (!finish()) return
 
       if (peaks === null) failedLoads.add(key)
@@ -691,20 +719,19 @@ export function createPlayerStore(
 
       reported = parsed.playlist.key
 
-      if (parsed.playlist.key === playlist.key) return
+      if (parsed.playlist.key === site.key) return
 
-      const before = new Map(
-        playlist.tracks.map((track) => [track.id, track.src])
-      )
-
+      const before = new Map(site.tracks.map((track) => [track.id, track.source]))
       const was = currentTrack()
 
-      playlist = parsed.playlist
+      site = parsed.playlist
+      playlist = joinPlaylist(site, files)
 
-      for (const [id, src] of before) {
+      for (const [id, source] of before) {
         const at = playlist.indexOf.get(id)
 
-        if (at === undefined || playlist.tracks[at].src !== src) forget(id)
+        if (at === undefined || !sameSource(playlist.tracks[at].source, source))
+          forget(id)
       }
 
       adopt(reconcilePlaylist(intent, playlist))
@@ -712,10 +739,27 @@ export function createPlayerStore(
       const now = currentTrack()
 
       // A dropped current track, or a new file under its id, stops playback.
-      if (!was || !now || now.id !== was.id || now.src !== was.src)
+      if (!was || !now || now.id !== was.id || !sameSource(now.source, was.source))
         apply({ kind: "cancel" })
 
       commit()
+    },
+    addFiles(input) {
+      const added = parseFiles(input, fileCount)
+      const first = added.tracks[0]
+
+      if (!first) return added
+
+      fileCount += added.tracks.length
+      files = [...files, ...added.tracks]
+      playlist = joinPlaylist(site, files)
+      // An empty player gets its first track here, current and idle; a
+      // playing one keeps its current track, so nothing stops or starts.
+      adopt(reconcilePlaylist(intent, playlist))
+      send({ type: "select-track", id: first.id })
+      commit()
+
+      return added
     },
     retain(need) {
       needs[need] += 1
@@ -769,4 +813,10 @@ export function createPlayerStore(
       if (changed) notify()
     },
   }
+}
+
+function sameSource(a: Source, b: Source): boolean {
+  return a.kind === "site"
+    ? b.kind === "site" && a.src === b.src
+    : b.kind === "file" && a.file === b.file
 }
