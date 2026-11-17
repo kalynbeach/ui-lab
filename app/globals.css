@@ -1,26 +1,881 @@
+@layer ui-sdk;
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Kevelle's tokens and utilities, ported from kevelle.css in the public
+ * registry at registry.kkb.systems (kevelle/styles). Names match the source,
+ * so code written for Kevelle reads the same here.
+ *
+ * Dark has three triggers: a .dark class (a nested scope, or the class the
+ * Kevelle waveform engine reads on <html>), data-color-scheme="dark" on
+ * <html>, and data-color-scheme="system" while the system prefers dark.
+ * :is() keeps Kevelle's extra class of specificity on dark: utilities.
+ */
+@custom-variant dark {
+  &:is(.dark, .dark *, [data-color-scheme="dark"], [data-color-scheme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:is([data-color-scheme="system"], [data-color-scheme="system"] *) {
+      @slot;
+    }
+  }
+}
+
+@font-face {
+  font-family: "Paper Mono";
+  src: url("/fonts/paper-mono/PaperMono-Variable.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Departure Mono";
+  src: url("/fonts/departure-mono/DepartureMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-subtle-hover: var(--destructive-subtle-hover);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-subtle-hover: var(--success-subtle-hover);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-subtle-hover: var(--warning-subtle-hover);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-signal-bright: var(--signal-bright);
+  --color-signal-dim: var(--signal-dim);
+  --color-signal-subtle: var(--signal-subtle);
+  --color-link: var(--link);
+  --color-backdrop: var(--backdrop);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Per-theme elevation, inline so a nested .dark scope reads its own. */
+  --shadow-surface: var(--surface-shadow);
+  --shadow-float: var(--float-shadow);
+
+  /*
+   * Parts are square. The ramp is for elements that opt into rounding, in
+   * whole pixels from one knob.
+   */
+  --radius-none: 0px;
+  --radius-xs: calc(var(--radius) * 0.25);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+  --radius-4xl: calc(var(--radius) * 4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /*
+   * Font roles, one job per face. pixel is the machine's voice: titles,
+   * labels, and values. sans is the human's voice: text and controls. mono
+   * is code only. brand is the wordmark.
+   *
+   * The license of Kevelle's sans face bars public repositories, so sans here
+   * is Geist, which app/layout.tsx loads as --font-geist-sans.
+   *
+   * label sets type-label and defaults to pixel. These roles live in
+   * Tailwind's theme layer, so a host's unlayered
+   * :root { --font-label: ... } wins, and so does a later @theme.
+   */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Paper Mono", ui-monospace, monospace;
+  --font-pixel: "Departure Mono", "Paper Mono", ui-monospace, monospace;
+  --font-label: var(--font-pixel);
+  --font-brand: "Departure Mono", "Paper Mono", ui-monospace, monospace;
+
+  /* The xs shadows stay empty: edges are hairlines and keys take the alloy. */
+  --shadow-2xs: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm:
+    0 0.25px 0.75px 0 color-mix(in oklch, var(--shadow-color) 5%, transparent),
+    0 1px 3px 0 color-mix(in oklch, var(--shadow-color) 8%, transparent);
+  --shadow-md:
+    0 1px 4px 0 color-mix(in oklch, var(--shadow-color) 4%, transparent),
+    0 4px 16px 0 color-mix(in oklch, var(--shadow-color) 6%, transparent);
+  --shadow-lg:
+    0 3px 9px 0 color-mix(in oklch, var(--shadow-color) 6%, transparent),
+    0 12px 36px 0 color-mix(in oklch, var(--shadow-color) 9%, transparent);
+  --shadow-xl: var(--shadow-lg);
+  --shadow-2xl: var(--shadow-lg);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Indeterminate progress: a third-width bar sweeping the track. */
+  --animate-progress-sweep: progress-sweep 1.2s var(--ease-out) infinite
+    alternate;
+
+  @keyframes progress-sweep {
+    from {
+      translate: 0;
+    }
+    to {
+      translate: 200%;
+    }
+  }
+
+  /*
+   * Two motion durations. Small moves controls, menus, and small popovers.
+   * Large moves dialogs, sheets, drawers, toasts, and disclosure panels.
+   * Read them with duration-(--duration-small) and duration-(--duration-large).
+   */
+  --duration-small: 160ms;
+  --duration-large: 280ms;
+  --default-transition-duration: var(--duration-small);
+  --default-transition-timing-function: var(--ease-out);
+}
+
+:root {
+  color-scheme: light;
+  --radius: 8px;
+
+  /*
+   * Neutral ramp. Roles below pick steps from it, and components use the
+   * roles. Light runs from a white canvas to near-black ink, with a steel
+   * tint at hue 240 on the inner steps.
+   */
+  --neutral-1: oklch(1 0 0);
+  --neutral-2: oklch(0.982 0.001 240);
+  --neutral-3: oklch(0.954 0.002 240);
+  --neutral-4: oklch(0.904 0.003 240);
+  --neutral-5: oklch(0.79 0.005 240);
+  --neutral-6: oklch(0.603 0.006 240);
+  --neutral-7: oklch(0.449 0.005 240);
+  --neutral-8: oklch(0.32 0.004 240);
+  --neutral-9: oklch(0.191 0.003 240);
+  --neutral-10: oklch(0.097 0 0);
+
+  --background: var(--neutral-1);
+  --foreground: var(--neutral-10);
+  --card: var(--neutral-1);
+  --card-foreground: var(--neutral-10);
+  --popover: var(--neutral-1);
+  --popover-foreground: var(--neutral-10);
+  --primary: var(--neutral-10);
+  --primary-foreground: var(--neutral-1);
+  /*
+   * A primary key's hover fill moves two steps toward its foreground. A
+   * secondary key keeps its fill and catches the alloy glint instead, and
+   * --secondary-hover is that lit face as one color, so bun run contrast
+   * can measure the label on it.
+   */
+  --primary-hover: var(--neutral-8);
+  --secondary: var(--neutral-3);
+  --secondary-foreground: var(--neutral-10);
+  --secondary-hover: color-mix(in srgb, var(--secondary) 60%, oklch(1 0 0));
+  --muted: var(--neutral-3);
+  --muted-foreground: var(--neutral-7);
+  /* Ink for graphics such as dither tracks: 3:1 on the canvas, not for text. */
+  --faint-foreground: var(--neutral-6);
+  --accent: var(--neutral-3);
+  --accent-foreground: var(--neutral-10);
+  /* Status colors also color text, so they clear 4.5:1 on the canvas and their tint. */
+  --destructive: oklch(0.54 0.22 28);
+  --destructive-foreground: var(--neutral-1);
+  --destructive-hover: oklch(0.57 0.233 28);
+  --success: oklch(0.51 0.156 145.3);
+  --success-foreground: var(--neutral-1);
+  --warning: oklch(0.535 0.123 61.9);
+  --warning-foreground: var(--neutral-1);
+  /* Opaque tints, so each status color on its tint has one measured ratio. */
+  --destructive-subtle: color-mix(
+    in srgb,
+    var(--destructive) 6%,
+    var(--background)
+  );
+  --destructive-subtle-hover: color-mix(
+    in srgb,
+    var(--destructive) 10%,
+    var(--background)
+  );
+  --success-subtle: color-mix(in srgb, var(--success) 6%, var(--background));
+  --success-subtle-hover: color-mix(
+    in srgb,
+    var(--success) 10%,
+    var(--background)
+  );
+  --warning-subtle: color-mix(in srgb, var(--warning) 6%, var(--background));
+  --warning-subtle-hover: color-mix(
+    in srgb,
+    var(--warning) 10%,
+    var(--background)
+  );
+  --border: var(--neutral-4);
+  --input: var(--neutral-6);
+  /*
+   * Outside status and data the interface is grayscale, and one role
+   * carries color: astral in light, phosphor in dark. bright is the
+   * signal's hottest core, dim its afterglow, and subtle its wash on the
+   * canvas. The focus ring and text selection take the signal, so it needs
+   * 3:1 on the canvas and its foreground 4.5:1 on it.
+   */
+  --signal: oklch(0.45 0.31 264.1);
+  --signal-bright: oklch(0.375 0.223 264.1);
+  --signal-dim: oklch(0.575 0.233 260.4);
+  --signal-subtle: color-mix(in srgb, var(--signal) 6%, var(--background));
+  --signal-foreground: var(--neutral-1);
+  --ring: var(--signal);
+  --link: oklch(0.525 0.259 262.8);
+  /* Modal overlays lay a 50% dither of the same color over this fill. */
+  --backdrop: oklch(0 0 0 / 0.14);
+
+  /*
+   * Data colors: oscilloscope phosphor, astral blue, flame orange, magenta,
+   * and chrome. Charts read them through chart-1 to chart-5 and need 3:1 on
+   * the canvas. lib/phosphor reads these five names from computed style.
+   */
+  --phosphor: oklch(0.62 0.171 145.9);
+  --astral: oklch(0.5 0.266 263.5);
+  --flame: oklch(0.64 0.191 42.5);
+  --magenta: oklch(0.58 0.251 324.6);
+  --chrome: oklch(0.665 0.137 80);
+
+  --chart-1: var(--astral);
+  --chart-2: var(--phosphor);
+  --chart-3: var(--flame);
+  --chart-4: var(--magenta);
+  --chart-5: var(--chrome);
+
+  --shadow-color: var(--neutral-10);
+
+  /*
+   * Machined alloy. A raised key is one part inside a 1px edge: a sheen over
+   * its fill, a lit lip along the top, a dark lip along the bottom, a
+   * contact line, and a short drop. A pressed key and a recessed field take
+   * the inverse bevel, a shade along the top and a lit sill along the
+   * bottom. The glint is the hover light on a secondary or outline key.
+   * Shadows mix the shadow color, so dark sets each value.
+   */
+  --alloy-sheen: linear-gradient(oklch(1 0 0 / 0.15), oklch(0 0 0 / 0.03));
+  --alloy-highlight: inset 0 1px 0 0 oklch(1 0 0 / 0.7);
+  --alloy-lip: inset 0 -1px 0 0
+    color-mix(in oklch, var(--shadow-color) 8%, transparent);
+  --alloy-line: 0 1px 1px 0
+    color-mix(in oklch, var(--shadow-color) 10%, transparent);
+  --alloy-drop: 0 2px 4px -2px
+    color-mix(in oklch, var(--shadow-color) 18%, transparent);
+  --alloy-shade: inset 0 1px 2px 0
+    color-mix(in oklch, var(--shadow-color) 10%, transparent);
+  --alloy-sill: inset 0 -1px 0 0 oklch(1 0 0 / 0.6);
+  --alloy-glint: oklch(1 0 0 / 0.4);
+
+  /*
+   * Elevation is smooth layered shadows, never dither. Cards lift on the
+   * surface shadow, and floating surfaces, which also carry the aura, on
+   * the float shadow.
+   */
+  --surface-shadow:
+    0 1px 2px -1px color-mix(in oklch, var(--shadow-color) 8%, transparent),
+    0 2px 4px 0 color-mix(in oklch, var(--shadow-color) 5%, transparent),
+    0 8px 24px -8px color-mix(in oklch, var(--shadow-color) 10%, transparent);
+  --float-shadow:
+    0 2px 4px -1px color-mix(in oklch, var(--shadow-color) 8%, transparent),
+    0 12px 32px -8px color-mix(in oklch, var(--shadow-color) 20%, transparent);
+
+  /* The 1px edge a floating surface draws inside its aura. */
+  --aura-edge: oklch(0.8 0.08 262);
+}
+
+:root,
+.dark {
+  @variant dark {
+    color-scheme: dark;
+
+    /* Near-black canvas to near-white ink, with the same steel tint. */
+    --neutral-1: oklch(0.097 0 0);
+    --neutral-2: oklch(0.142 0.001 240);
+    --neutral-3: oklch(0.189 0.003 240);
+    --neutral-4: oklch(0.266 0.004 240);
+    --neutral-5: oklch(0.378 0.005 240);
+    --neutral-6: oklch(0.55 0.006 240);
+    --neutral-7: oklch(0.71 0.005 240);
+    --neutral-8: oklch(0.831 0.004 240);
+    --neutral-9: oklch(0.925 0.002 240);
+    --neutral-10: oklch(0.985 0 0);
+
+    --background: var(--neutral-1);
+    --foreground: var(--neutral-10);
+    --card: var(--neutral-2);
+    --card-foreground: var(--neutral-10);
+    --popover: var(--neutral-2);
+    --popover-foreground: var(--neutral-10);
+    --primary: var(--neutral-10);
+    --primary-foreground: var(--neutral-1);
+    --primary-hover: var(--neutral-8);
+    --secondary: var(--neutral-3);
+    --secondary-foreground: var(--neutral-10);
+    --secondary-hover: color-mix(in srgb, var(--secondary) 94%, oklch(1 0 0));
+    --muted: var(--neutral-3);
+    --muted-foreground: var(--neutral-7);
+    --faint-foreground: var(--neutral-6);
+    --accent: var(--neutral-4);
+    --accent-foreground: var(--neutral-10);
+    --destructive: oklch(0.67 0.194 28.9);
+    --destructive-foreground: var(--neutral-1);
+    --destructive-hover: oklch(0.63 0.248 29.3);
+    /* A matte green well below the signal, so success does not read as it. */
+    --success: oklch(0.625 0.172 145.9);
+    --success-foreground: var(--neutral-1);
+    --warning: oklch(0.84 0.142 76.3);
+    --warning-foreground: var(--neutral-1);
+    --destructive-subtle: color-mix(
+      in srgb,
+      var(--destructive) 16%,
+      var(--background)
+    );
+    --destructive-subtle-hover: color-mix(
+      in srgb,
+      var(--destructive) 24%,
+      var(--background)
+    );
+    --success-subtle: color-mix(in srgb, var(--success) 16%, var(--background));
+    --success-subtle-hover: color-mix(
+      in srgb,
+      var(--success) 24%,
+      var(--background)
+    );
+    --warning-subtle: color-mix(in srgb, var(--warning) 16%, var(--background));
+    --warning-subtle-hover: color-mix(
+      in srgb,
+      var(--warning) 24%,
+      var(--background)
+    );
+    --border: var(--neutral-4);
+    --input: var(--neutral-6);
+    /* The oscilloscope trace: the signal, its hot core, and its afterglow. */
+    --signal: oklch(0.88 0.15 146);
+    --signal-bright: oklch(0.94 0.1 150);
+    --signal-dim: oklch(0.6 0.14 143);
+    --signal-subtle: color-mix(in srgb, var(--signal) 16%, var(--background));
+    --signal-foreground: var(--neutral-1);
+    --ring: var(--signal);
+    --link: var(--signal);
+    --backdrop: oklch(0 0 0 / 0.59);
+
+    --phosphor: var(--signal);
+    --astral: oklch(0.64 0.192 262);
+    --flame: oklch(0.72 0.177 55.2);
+    --magenta: oklch(0.69 0.213 324.8);
+    --chrome: oklch(0.89 0.181 99.6);
+
+    /* Phosphor is the signal, so it leads the series and astral follows. */
+    --chart-1: var(--phosphor);
+    --chart-2: var(--astral);
+    --chart-3: var(--flame);
+    --chart-4: var(--magenta);
+    --chart-5: var(--chrome);
+
+    --shadow-color: oklch(0 0 0);
+
+    /*
+     * On the near-black canvas the shadows need far more black to read, and
+     * the lit lip and the glint far less white.
+     */
+    --alloy-sheen: linear-gradient(oklch(1 0 0 / 0.08), oklch(0 0 0 / 0.08));
+    --alloy-highlight: inset 0 1px 0 0 oklch(1 0 0 / 0.14);
+    --alloy-lip: inset 0 -1px 0 0
+      color-mix(in oklch, var(--shadow-color) 50%, transparent);
+    --alloy-line: 0 1px 1px 0
+      color-mix(in oklch, var(--shadow-color) 70%, transparent);
+    --alloy-drop: 0 2px 4px -2px
+      color-mix(in oklch, var(--shadow-color) 60%, transparent);
+    --alloy-shade: inset 0 1px 2px 0
+      color-mix(in oklch, var(--shadow-color) 60%, transparent);
+    --alloy-sill: inset 0 -1px 0 0 oklch(1 0 0 / 0.05);
+    --alloy-glint: oklch(1 0 0 / 0.06);
+
+    /*
+     * Shadows barely read on the near-black canvas, so a white top highlight
+     * lifts each surface too. A floating surface's aura covers its first
+     * row, so its highlight is 2px tall.
+     */
+    --surface-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.06),
+      0 2px 4px -1px color-mix(in oklch, var(--shadow-color) 60%, transparent),
+      0 12px 28px -10px color-mix(in oklch, var(--shadow-color) 80%, transparent);
+    --float-shadow:
+      inset 0 2px 0 0 oklch(1 0 0 / 0.08),
+      0 12px 32px -8px color-mix(in oklch, var(--shadow-color) 90%, transparent);
+
+    --aura-edge: oklch(0.42 0.08 146);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/*
+ * Dither images, copied byte for byte from kevelle.css, where a script
+ * draws them from each theme's signal color. Change them there and copy
+ * them again; editing them here drifts from the source.
+ */
+:root {
+  --aura-spread: 6;
+  --aura-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges' fill='oklch(0.575 0.233 260.4)'%3E%3Cstyle%3Epattern rect%7Bwidth:1px%3Bheight:1px%7D.w3%7Bwidth:calc(100%25 - 6px)%7D.w2%7Bwidth:calc(100%25 - 4px)%7D.w1%7Bwidth:calc(100%25 - 2px)%7D.w5%7Bwidth:calc(100%25 - 10px)%7D.w4%7Bwidth:calc(100%25 - 8px)%7D.w6%7Bwidth:calc(100%25 - 12px)%7D.h1%7Bheight:calc(100%25 - 2px)%7D.h2%7Bheight:calc(100%25 - 4px)%7D.h3%7Bheight:calc(100%25 - 6px)%7D.h5%7Bheight:calc(100%25 - 10px)%7D.h4%7Bheight:calc(100%25 - 8px)%7D.h6%7Bheight:calc(100%25 - 12px)%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='4' y='4'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='4' y='0'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='0' y='4'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='2' y='2'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='6' y='6'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='6' y='2'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='2' y='6'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='2' y='0'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='6' y='4'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='6' y='0'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='2' y='4'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='0' y='2'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='4' y='6'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='4' y='2'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='0' y='6'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='1' y='1'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='5' y='5'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='3' y='1' class='w3 h1' fill='url(%23p0)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p0)'/%3E%3Crect x='1' y='3' class='w1 h3' fill='url(%23p0)'/%3E%3Crect x='5' y='1' class='w5 h1' fill='url(%23p1)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p1)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p1)'/%3E%3Crect x='1' y='5' class='w1 h5' fill='url(%23p1)'/%3E%3Crect x='4' y='2' class='w4 h2' fill='url(%23p2)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p2)'/%3E%3Crect x='2' y='4' class='w2 h4' fill='url(%23p2)'/%3E%3Crect x='5' y='2' class='w5 h2' fill='url(%23p3)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p3)'/%3E%3Crect x='2' y='5' class='w2 h5' fill='url(%23p3)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p4)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p4)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p5)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p5)'/%3E%3Crect x='5' y='3' class='w5 h3' fill='url(%23p6)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p6)'/%3E%3Crect x='3' y='5' class='w3 h5' fill='url(%23p6)'/%3E%3Crect x='5' y='3' class='w5 h3' fill='url(%23p7)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p7)'/%3E%3Crect x='3' y='5' class='w3 h5' fill='url(%23p7)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p8)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p9)'/%3E%3Crect x='5' y='4' class='w5 h4' fill='url(%23p10)'/%3E%3Crect x='4' y='5' class='w4 h5' fill='url(%23p10)'/%3E%3Crect x='5' y='4' class='w5 h4' fill='url(%23p11)'/%3E%3Crect x='4' y='5' class='w4 h5' fill='url(%23p11)'/%3E%3Crect x='5' y='4' class='w5 h4' fill='url(%23p12)'/%3E%3Crect x='4' y='5' class='w4 h5' fill='url(%23p12)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p13)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p14)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p15)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p16)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p17)'/%3E%3Crect x='6' y='5' class='w6 h5' fill='url(%23p18)'/%3E%3Crect x='5' y='6' class='w5 h6' fill='url(%23p18)'/%3E%3C/svg%3E");
+  --aura-focus-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges' fill='oklch(0.575 0.233 260.4)'%3E%3Cstyle%3Epattern rect%7Bwidth:1px%3Bheight:1px%7D.w3%7Bwidth:calc(100%25 - 6px)%7D.w1%7Bwidth:calc(100%25 - 2px)%7D.w0%7Bwidth:calc(100%25 - 0px)%7D.w2%7Bwidth:calc(100%25 - 4px)%7D.w4%7Bwidth:calc(100%25 - 8px)%7D.h0%7Bheight:calc(100%25 - 0px)%7D.h1%7Bheight:calc(100%25 - 2px)%7D.h3%7Bheight:calc(100%25 - 6px)%7D.h2%7Bheight:calc(100%25 - 4px)%7D.h4%7Bheight:calc(100%25 - 8px)%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='4' y='4'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='4' y='0'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='0' y='4'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='2' y='2'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='6' y='6'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='6' y='2'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='2' y='6'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='2' y='0'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='6' y='4'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='6' y='0'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='2' y='4'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='0' y='2'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='4' y='6'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='4' y='2'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='0' y='6'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='1' y='1'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='5' y='5'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3Cpattern id='p19' href='%23p'%3E%3Crect x='1' y='5'/%3E%3C/pattern%3E%3Cpattern id='p20' href='%23p'%3E%3Crect x='3' y='3'/%3E%3C/pattern%3E%3Cpattern id='p21' href='%23p'%3E%3Crect x='7' y='7'/%3E%3C/pattern%3E%3Cpattern id='p22' href='%23p'%3E%3Crect x='7' y='3'/%3E%3C/pattern%3E%3Cpattern id='p23' href='%23p'%3E%3Crect x='3' y='7'/%3E%3C/pattern%3E%3Cpattern id='p24' href='%23p'%3E%3Crect x='3' y='1'/%3E%3C/pattern%3E%3Cpattern id='p25' href='%23p'%3E%3Crect x='7' y='5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='3' y='0' class='w3 h0' fill='url(%23p0)'/%3E%3Crect x='1' y='1' class='w1 h1' fill='url(%23p0)'/%3E%3Crect x='0' y='3' class='w0 h3' fill='url(%23p0)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p1)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p1)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p2)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p2)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p3)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p3)'/%3E%3Crect x='3' y='1' class='w3 h1' fill='url(%23p4)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p4)'/%3E%3Crect x='1' y='3' class='w1 h3' fill='url(%23p4)'/%3E%3Crect x='3' y='1' class='w3 h1' fill='url(%23p5)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p5)'/%3E%3Crect x='1' y='3' class='w1 h3' fill='url(%23p5)'/%3E%3Crect x='4' y='1' class='w4 h1' fill='url(%23p6)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p6)'/%3E%3Crect x='1' y='4' class='w1 h4' fill='url(%23p6)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p7)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p8)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p9)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p10)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p10)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p11)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p11)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p12)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p12)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p13)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p13)'/%3E%3Crect x='4' y='2' class='w4 h2' fill='url(%23p14)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p14)'/%3E%3Crect x='2' y='4' class='w2 h4' fill='url(%23p14)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p15)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p16)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p17)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p18)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p19)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p20)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p21)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p22)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p23)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p23)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p24)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p24)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p25)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p25)'/%3E%3C/svg%3E");
+  --led-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' shape-rendering='crispEdges'%3E%3Cpath fill='oklch(0.575 0.233 260.4)' d='M8 0h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM9 3h1v1h-1zM2 4h1v1h-1zM10 4h1v1h-1zM12 4h1v1h-1zM3 5h1v1h-1zM2 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM10 8h1v1h-1zM12 8h1v1h-1zM3 9h1v1h-1zM2 10h1v1h-1zM4 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM10 10h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM12 12h1v1h-1z'/%3E%3C/svg%3E");
+  --aura-focus-spread: 4;
+  --led-spread: 4;
+  --ramp-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges'%3E%3Cstyle%3Erect%7Bheight:100%25%7Dpattern rect%7Bwidth:1px%3Bheight:1px%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3Crect x='4' y='4'/%3E%3Crect x='4' y='0'/%3E%3Crect x='0' y='4'/%3E%3Crect x='2' y='2'/%3E%3Crect x='6' y='6'/%3E%3Crect x='6' y='2'/%3E%3Crect x='2' y='6'/%3E%3Crect x='2' y='0'/%3E%3Crect x='6' y='4'/%3E%3Crect x='6' y='0'/%3E%3Crect x='2' y='4'/%3E%3Crect x='0' y='2'/%3E%3Crect x='4' y='6'/%3E%3Crect x='4' y='2'/%3E%3Crect x='0' y='6'/%3E%3Crect x='1' y='1'/%3E%3Crect x='5' y='5'/%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='1' y='5'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='3' y='3'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='7' y='7'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='7' y='3'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='3' y='7'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='3' y='1'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='7' y='5'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='7' y='1'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='3' y='5'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='1' y='3'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='5' y='7'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='5' y='3'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='1' y='7'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='1' y='0'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='5' y='4'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='5' y='0'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='1' y='4'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='3' y='2'/%3E%3C/pattern%3E%3Cpattern id='p19' href='%23p'%3E%3Crect x='7' y='6'/%3E%3C/pattern%3E%3Cpattern id='p20' href='%23p'%3E%3Crect x='7' y='2'/%3E%3C/pattern%3E%3Cpattern id='p21' href='%23p'%3E%3Crect x='3' y='6'/%3E%3C/pattern%3E%3Cpattern id='p22' href='%23p'%3E%3Crect x='3' y='0'/%3E%3C/pattern%3E%3Cpattern id='p23' href='%23p'%3E%3Crect x='7' y='4'/%3E%3C/pattern%3E%3Cpattern id='p24' href='%23p'%3E%3Crect x='7' y='0'/%3E%3C/pattern%3E%3Cpattern id='p25' href='%23p'%3E%3Crect x='3' y='4'/%3E%3C/pattern%3E%3Cpattern id='p26' href='%23p'%3E%3Crect x='1' y='2'/%3E%3C/pattern%3E%3Cpattern id='p27' href='%23p'%3E%3Crect x='5' y='6'/%3E%3C/pattern%3E%3Cpattern id='p28' href='%23p'%3E%3Crect x='5' y='2'/%3E%3C/pattern%3E%3Cpattern id='p29' href='%23p'%3E%3Crect x='1' y='6'/%3E%3C/pattern%3E%3Cpattern id='p30' href='%23p'%3E%3Crect x='0' y='1'/%3E%3C/pattern%3E%3Cpattern id='p31' href='%23p'%3E%3Crect x='4' y='5'/%3E%3C/pattern%3E%3Cpattern id='p32' href='%23p'%3E%3Crect x='4' y='1'/%3E%3C/pattern%3E%3Cpattern id='p33' href='%23p'%3E%3Crect x='0' y='5'/%3E%3C/pattern%3E%3Cpattern id='p34' href='%23p'%3E%3Crect x='2' y='3'/%3E%3C/pattern%3E%3Cpattern id='p35' href='%23p'%3E%3Crect x='6' y='7'/%3E%3C/pattern%3E%3Cpattern id='p36' href='%23p'%3E%3Crect x='6' y='3'/%3E%3C/pattern%3E%3Cpattern id='p37' href='%23p'%3E%3Crect x='2' y='7'/%3E%3C/pattern%3E%3Cpattern id='p38' href='%23p'%3E%3Crect x='2' y='1'/%3E%3C/pattern%3E%3Cpattern id='p39' href='%23p'%3E%3Crect x='6' y='5'/%3E%3C/pattern%3E%3Cpattern id='p40' href='%23p'%3E%3Crect x='6' y='1'/%3E%3C/pattern%3E%3Cpattern id='p41' href='%23p'%3E%3Crect x='2' y='5'/%3E%3C/pattern%3E%3Cpattern id='p42' href='%23p'%3E%3Crect x='0' y='3'/%3E%3C/pattern%3E%3Cpattern id='p43' href='%23p'%3E%3Crect x='4' y='7'/%3E%3C/pattern%3E%3Cpattern id='p44' href='%23p'%3E%3Crect x='4' y='3'/%3E%3C/pattern%3E%3Cpattern id='p45' href='%23p'%3E%3Crect x='0' y='7'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='0%25' width='100%25' fill='url(%23p0)'/%3E%3Crect x='1.54%25' width='98.46%25' fill='url(%23p1)'/%3E%3Crect x='5.23%25' width='94.77%25' fill='url(%23p2)'/%3E%3Crect x='8.42%25' width='91.58%25' fill='url(%23p3)'/%3E%3Crect x='11.38%25' width='88.62%25' fill='url(%23p4)'/%3E%3Crect x='14.18%25' width='85.82%25' fill='url(%23p5)'/%3E%3Crect x='16.88%25' width='83.12%25' fill='url(%23p6)'/%3E%3Crect x='19.5%25' width='80.5%25' fill='url(%23p7)'/%3E%3Crect x='22.05%25' width='77.95%25' fill='url(%23p8)'/%3E%3Crect x='24.54%25' width='75.46%25' fill='url(%23p9)'/%3E%3Crect x='26.98%25' width='73.02%25' fill='url(%23p10)'/%3E%3Crect x='29.37%25' width='70.63%25' fill='url(%23p11)'/%3E%3Crect x='31.73%25' width='68.27%25' fill='url(%23p12)'/%3E%3Crect x='34.06%25' width='65.94%25' fill='url(%23p13)'/%3E%3Crect x='36.35%25' width='63.65%25' fill='url(%23p14)'/%3E%3Crect x='38.61%25' width='61.39%25' fill='url(%23p15)'/%3E%3Crect x='40.85%25' width='59.15%25' fill='url(%23p16)'/%3E%3Crect x='43.06%25' width='56.94%25' fill='url(%23p17)'/%3E%3Crect x='45.25%25' width='54.75%25' fill='url(%23p18)'/%3E%3Crect x='47.42%25' width='52.58%25' fill='url(%23p19)'/%3E%3Crect x='49.57%25' width='50.43%25' fill='url(%23p20)'/%3E%3Crect x='51.7%25' width='48.3%25' fill='url(%23p21)'/%3E%3Crect x='53.82%25' width='46.18%25' fill='url(%23p22)'/%3E%3Crect x='55.91%25' width='44.09%25' fill='url(%23p23)'/%3E%3Crect x='58%25' width='42%25' fill='url(%23p24)'/%3E%3Crect x='60.06%25' width='39.94%25' fill='url(%23p25)'/%3E%3Crect x='62.12%25' width='37.88%25' fill='url(%23p26)'/%3E%3Crect x='64.16%25' width='35.84%25' fill='url(%23p27)'/%3E%3Crect x='66.18%25' width='33.82%25' fill='url(%23p28)'/%3E%3Crect x='68.2%25' width='31.8%25' fill='url(%23p29)'/%3E%3Crect x='70.2%25' width='29.8%25' fill='url(%23p30)'/%3E%3Crect x='72.19%25' width='27.81%25' fill='url(%23p31)'/%3E%3Crect x='74.17%25' width='25.83%25' fill='url(%23p32)'/%3E%3Crect x='76.14%25' width='23.86%25' fill='url(%23p33)'/%3E%3Crect x='78.1%25' width='21.9%25' fill='url(%23p34)'/%3E%3Crect x='80.05%25' width='19.95%25' fill='url(%23p35)'/%3E%3Crect x='81.99%25' width='18.01%25' fill='url(%23p36)'/%3E%3Crect x='83.92%25' width='16.08%25' fill='url(%23p37)'/%3E%3Crect x='85.84%25' width='14.16%25' fill='url(%23p38)'/%3E%3Crect x='87.75%25' width='12.25%25' fill='url(%23p39)'/%3E%3Crect x='89.66%25' width='10.34%25' fill='url(%23p40)'/%3E%3Crect x='91.56%25' width='8.44%25' fill='url(%23p41)'/%3E%3Crect x='93.45%25' width='6.55%25' fill='url(%23p42)'/%3E%3Crect x='95.33%25' width='4.67%25' fill='url(%23p43)'/%3E%3Crect x='97.2%25' width='2.8%25' fill='url(%23p44)'/%3E%3Crect x='99.07%25' width='0.93%25' fill='url(%23p45)'/%3E%3C/svg%3E");
+  --beam-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges'%3E%3Cstyle%3Erect%7Bheight:100%25%7Dpattern rect%7Bwidth:1px%3Bheight:1px%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='4' y='4'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='4' y='0'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='0' y='4'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='2' y='2'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='6' y='6'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='6' y='2'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='2' y='6'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='2' y='0'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='6' y='4'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='6' y='0'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='2' y='4'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='0' y='2'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='4' y='6'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='4' y='2'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='0' y='6'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='1' y='1'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='5' y='5'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3Cpattern id='p19' href='%23p'%3E%3Crect x='1' y='5'/%3E%3C/pattern%3E%3Cpattern id='p20' href='%23p'%3E%3Crect x='3' y='3'/%3E%3C/pattern%3E%3Cpattern id='p21' href='%23p'%3E%3Crect x='7' y='7'/%3E%3C/pattern%3E%3Cpattern id='p22' href='%23p'%3E%3Crect x='7' y='3'/%3E%3C/pattern%3E%3Cpattern id='p23' href='%23p'%3E%3Crect x='3' y='7'/%3E%3C/pattern%3E%3Cpattern id='p24' href='%23p'%3E%3Crect x='3' y='1'/%3E%3C/pattern%3E%3Cpattern id='p25' href='%23p'%3E%3Crect x='7' y='5'/%3E%3C/pattern%3E%3Cpattern id='p26' href='%23p'%3E%3Crect x='7' y='1'/%3E%3C/pattern%3E%3Cpattern id='p27' href='%23p'%3E%3Crect x='3' y='5'/%3E%3C/pattern%3E%3Cpattern id='p28' href='%23p'%3E%3Crect x='1' y='3'/%3E%3C/pattern%3E%3Cpattern id='p29' href='%23p'%3E%3Crect x='5' y='7'/%3E%3C/pattern%3E%3Cpattern id='p30' href='%23p'%3E%3Crect x='5' y='3'/%3E%3C/pattern%3E%3Cpattern id='p31' href='%23p'%3E%3Crect x='1' y='7'/%3E%3C/pattern%3E%3Cpattern id='p32' href='%23p'%3E%3Crect x='1' y='0'/%3E%3C/pattern%3E%3Cpattern id='p33' href='%23p'%3E%3Crect x='5' y='4'/%3E%3C/pattern%3E%3Cpattern id='p34' href='%23p'%3E%3Crect x='5' y='0'/%3E%3C/pattern%3E%3Cpattern id='p35' href='%23p'%3E%3Crect x='1' y='4'/%3E%3C/pattern%3E%3Cpattern id='p36' href='%23p'%3E%3Crect x='3' y='2'/%3E%3C/pattern%3E%3Cpattern id='p37' href='%23p'%3E%3Crect x='7' y='6'/%3E%3C/pattern%3E%3Cpattern id='p38' href='%23p'%3E%3Crect x='7' y='2'/%3E%3C/pattern%3E%3Cpattern id='p39' href='%23p'%3E%3Crect x='3' y='6'/%3E%3C/pattern%3E%3Cpattern id='p40' href='%23p'%3E%3Crect x='3' y='0'/%3E%3C/pattern%3E%3Cpattern id='p41' href='%23p'%3E%3Crect x='7' y='4'/%3E%3C/pattern%3E%3Cpattern id='p42' href='%23p'%3E%3Crect x='7' y='0'/%3E%3C/pattern%3E%3Cpattern id='p43' href='%23p'%3E%3Crect x='3' y='4'/%3E%3C/pattern%3E%3Cpattern id='p44' href='%23p'%3E%3Crect x='1' y='2'/%3E%3C/pattern%3E%3Cpattern id='p45' href='%23p'%3E%3Crect x='5' y='6'/%3E%3C/pattern%3E%3Cpattern id='p46' href='%23p'%3E%3Crect x='5' y='2'/%3E%3C/pattern%3E%3Cpattern id='p47' href='%23p'%3E%3Crect x='1' y='6'/%3E%3C/pattern%3E%3Cpattern id='p48' href='%23p'%3E%3Crect x='0' y='1'/%3E%3C/pattern%3E%3Cpattern id='p49' href='%23p'%3E%3Crect x='4' y='5'/%3E%3C/pattern%3E%3Cpattern id='p50' href='%23p'%3E%3Crect x='4' y='1'/%3E%3C/pattern%3E%3Cpattern id='p51' href='%23p'%3E%3Crect x='0' y='5'/%3E%3C/pattern%3E%3Cpattern id='p52' href='%23p'%3E%3Crect x='2' y='3'/%3E%3C/pattern%3E%3Cpattern id='p53' href='%23p'%3E%3Crect x='6' y='7'/%3E%3C/pattern%3E%3Cpattern id='p54' href='%23p'%3E%3Crect x='6' y='3'/%3E%3C/pattern%3E%3Cpattern id='p55' href='%23p'%3E%3Crect x='2' y='7'/%3E%3C/pattern%3E%3Cpattern id='p56' href='%23p'%3E%3Crect x='2' y='1'/%3E%3C/pattern%3E%3Cpattern id='p57' href='%23p'%3E%3Crect x='6' y='5'/%3E%3C/pattern%3E%3Cpattern id='p58' href='%23p'%3E%3Crect x='6' y='1'/%3E%3C/pattern%3E%3Cpattern id='p59' href='%23p'%3E%3Crect x='2' y='5'/%3E%3C/pattern%3E%3Cpattern id='p60' href='%23p'%3E%3Crect x='0' y='3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='0%25' width='98.83%25' fill='url(%23p0)'/%3E%3Crect x='0%25' width='96.49%25' fill='url(%23p1)'/%3E%3Crect x='0%25' width='94.18%25' fill='url(%23p2)'/%3E%3Crect x='0%25' width='91.88%25' fill='url(%23p3)'/%3E%3Crect x='0%25' width='89.6%25' fill='url(%23p4)'/%3E%3Crect x='0%25' width='87.33%25' fill='url(%23p5)'/%3E%3Crect x='0%25' width='85.08%25' fill='url(%23p6)'/%3E%3Crect x='0%25' width='82.86%25' fill='url(%23p7)'/%3E%3Crect x='0%25' width='80.64%25' fill='url(%23p8)'/%3E%3Crect x='0%25' width='78.45%25' fill='url(%23p9)'/%3E%3Crect x='0%25' width='76.27%25' fill='url(%23p10)'/%3E%3Crect x='0%25' width='74.12%25' fill='url(%23p11)'/%3E%3Crect x='0%25' width='71.98%25' fill='url(%23p12)'/%3E%3Crect x='0%25' width='69.86%25' fill='url(%23p13)'/%3E%3Crect x='0%25' width='67.76%25' fill='url(%23p14)'/%3E%3Crect x='0%25' width='65.68%25' fill='url(%23p15)'/%3E%3Crect x='0%25' width='63.62%25' fill='url(%23p16)'/%3E%3Crect x='0%25' width='61.58%25' fill='url(%23p17)'/%3E%3Crect x='0%25' width='59.55%25' fill='url(%23p18)'/%3E%3Crect x='0%25' width='57.55%25' fill='url(%23p19)'/%3E%3Crect x='0%25' width='55.57%25' fill='url(%23p20)'/%3E%3Crect x='0%25' width='53.61%25' fill='url(%23p21)'/%3E%3Crect x='0%25' width='51.67%25' fill='url(%23p22)'/%3E%3Crect x='0%25' width='49.76%25' fill='url(%23p23)'/%3E%3Crect x='0%25' width='47.86%25' fill='url(%23p24)'/%3E%3Crect x='0%25' width='45.99%25' fill='url(%23p25)'/%3E%3Crect x='0%25' width='44.14%25' fill='url(%23p26)'/%3E%3Crect x='0%25' width='42.31%25' fill='url(%23p27)'/%3E%3Crect x='0%25' width='40.51%25' fill='url(%23p28)'/%3E%3Crect x='0%25' width='38.73%25' fill='url(%23p29)'/%3E%3Crect x='0%25' width='36.98%25' fill='url(%23p30)'/%3E%3Crect x='0%25' width='35.24%25' fill='url(%23p31)'/%3E%3Crect x='0%25' width='33.54%25' fill='url(%23p32)'/%3E%3Crect x='0%25' width='31.86%25' fill='url(%23p33)'/%3E%3Crect x='0%25' width='30.2%25' fill='url(%23p34)'/%3E%3Crect x='0%25' width='28.58%25' fill='url(%23p35)'/%3E%3Crect x='0%25' width='26.98%25' fill='url(%23p36)'/%3E%3Crect x='0%25' width='25.41%25' fill='url(%23p37)'/%3E%3Crect x='0%25' width='23.86%25' fill='url(%23p38)'/%3E%3Crect x='0%25' width='22.35%25' fill='url(%23p39)'/%3E%3Crect x='0%25' width='20.86%25' fill='url(%23p40)'/%3E%3Crect x='0%25' width='19.41%25' fill='url(%23p41)'/%3E%3Crect x='0%25' width='17.99%25' fill='url(%23p42)'/%3E%3Crect x='0%25' width='16.6%25' fill='url(%23p43)'/%3E%3Crect x='0%25' width='15.25%25' fill='url(%23p44)'/%3E%3Crect x='0%25' width='13.93%25' fill='url(%23p45)'/%3E%3Crect x='0%25' width='12.65%25' fill='url(%23p46)'/%3E%3Crect x='0%25' width='11.4%25' fill='url(%23p47)'/%3E%3Crect x='0%25' width='10.2%25' fill='url(%23p48)'/%3E%3Crect x='0%25' width='9.04%25' fill='url(%23p49)'/%3E%3Crect x='0%25' width='7.92%25' fill='url(%23p50)'/%3E%3Crect x='0%25' width='6.84%25' fill='url(%23p51)'/%3E%3Crect x='0%25' width='5.81%25' fill='url(%23p52)'/%3E%3Crect x='0%25' width='4.84%25' fill='url(%23p53)'/%3E%3Crect x='0%25' width='3.92%25' fill='url(%23p54)'/%3E%3Crect x='0%25' width='3.06%25' fill='url(%23p55)'/%3E%3Crect x='0%25' width='2.27%25' fill='url(%23p56)'/%3E%3Crect x='0%25' width='1.56%25' fill='url(%23p57)'/%3E%3Crect x='0%25' width='0.93%25' fill='url(%23p58)'/%3E%3Crect x='0%25' width='0.41%25' fill='url(%23p59)'/%3E%3Crect x='0%25' width='0.05%25' fill='url(%23p60)'/%3E%3C/svg%3E");
+}
+
+:root,
+.dark {
+  @variant dark {
+    --aura-spread: 8;
+    --aura-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges' fill='oklch(0.6 0.14 143)'%3E%3Cstyle%3Epattern rect%7Bwidth:1px%3Bheight:1px%7D.w5%7Bwidth:calc(100%25 - 10px)%7D.w4%7Bwidth:calc(100%25 - 8px)%7D.w3%7Bwidth:calc(100%25 - 6px)%7D.w2%7Bwidth:calc(100%25 - 4px)%7D.w1%7Bwidth:calc(100%25 - 2px)%7D.w7%7Bwidth:calc(100%25 - 14px)%7D.w6%7Bwidth:calc(100%25 - 12px)%7D.w8%7Bwidth:calc(100%25 - 16px)%7D.h1%7Bheight:calc(100%25 - 2px)%7D.h2%7Bheight:calc(100%25 - 4px)%7D.h3%7Bheight:calc(100%25 - 6px)%7D.h4%7Bheight:calc(100%25 - 8px)%7D.h5%7Bheight:calc(100%25 - 10px)%7D.h7%7Bheight:calc(100%25 - 14px)%7D.h6%7Bheight:calc(100%25 - 12px)%7D.h8%7Bheight:calc(100%25 - 16px)%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='4' y='4'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='4' y='0'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='0' y='4'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='2' y='2'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='6' y='6'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='6' y='2'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='2' y='6'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='2' y='0'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='6' y='4'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='6' y='0'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='2' y='4'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='0' y='2'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='4' y='6'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='4' y='2'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='0' y='6'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='1' y='1'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='5' y='5'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3Cpattern id='p19' href='%23p'%3E%3Crect x='1' y='5'/%3E%3C/pattern%3E%3Cpattern id='p20' href='%23p'%3E%3Crect x='3' y='3'/%3E%3C/pattern%3E%3Cpattern id='p21' href='%23p'%3E%3Crect x='7' y='7'/%3E%3C/pattern%3E%3Cpattern id='p22' href='%23p'%3E%3Crect x='7' y='3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='5' y='1' class='w5 h1' fill='url(%23p0)'/%3E%3Crect x='4' y='2' class='w4 h2' fill='url(%23p0)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p0)'/%3E%3Crect x='2' y='4' class='w2 h4' fill='url(%23p0)'/%3E%3Crect x='1' y='5' class='w1 h5' fill='url(%23p0)'/%3E%3Crect x='5' y='2' class='w5 h2' fill='url(%23p1)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p1)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p1)'/%3E%3Crect x='2' y='5' class='w2 h5' fill='url(%23p1)'/%3E%3Crect x='7' y='2' class='w7 h2' fill='url(%23p2)'/%3E%3Crect x='5' y='3' class='w5 h3' fill='url(%23p2)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p2)'/%3E%3Crect x='3' y='5' class='w3 h5' fill='url(%23p2)'/%3E%3Crect x='2' y='7' class='w2 h7' fill='url(%23p2)'/%3E%3Crect x='5' y='3' class='w5 h3' fill='url(%23p3)'/%3E%3Crect x='4' y='4' class='w4 h4' fill='url(%23p3)'/%3E%3Crect x='3' y='5' class='w3 h5' fill='url(%23p3)'/%3E%3Crect x='6' y='3' class='w6 h3' fill='url(%23p4)'/%3E%3Crect x='5' y='4' class='w5 h4' fill='url(%23p4)'/%3E%3Crect x='4' y='5' class='w4 h5' fill='url(%23p4)'/%3E%3Crect x='3' y='6' class='w3 h6' fill='url(%23p4)'/%3E%3Crect x='5' y='4' class='w5 h4' fill='url(%23p5)'/%3E%3Crect x='4' y='5' class='w4 h5' fill='url(%23p5)'/%3E%3Crect x='6' y='4' class='w6 h4' fill='url(%23p6)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p6)'/%3E%3Crect x='4' y='6' class='w4 h6' fill='url(%23p6)'/%3E%3Crect x='7' y='4' class='w7 h4' fill='url(%23p7)'/%3E%3Crect x='5' y='5' class='w5 h5' fill='url(%23p7)'/%3E%3Crect x='4' y='7' class='w4 h7' fill='url(%23p7)'/%3E%3Crect x='8' y='4' class='w8 h4' fill='url(%23p8)'/%3E%3Crect x='6' y='5' class='w6 h5' fill='url(%23p8)'/%3E%3Crect x='5' y='6' class='w5 h6' fill='url(%23p8)'/%3E%3Crect x='4' y='8' class='w4 h8' fill='url(%23p8)'/%3E%3Crect x='6' y='5' class='w6 h5' fill='url(%23p9)'/%3E%3Crect x='5' y='6' class='w5 h6' fill='url(%23p9)'/%3E%3Crect x='6' y='5' class='w6 h5' fill='url(%23p10)'/%3E%3Crect x='5' y='6' class='w5 h6' fill='url(%23p10)'/%3E%3Crect x='7' y='5' class='w7 h5' fill='url(%23p11)'/%3E%3Crect x='6' y='6' class='w6 h6' fill='url(%23p11)'/%3E%3Crect x='5' y='7' class='w5 h7' fill='url(%23p11)'/%3E%3Crect x='8' y='5' class='w8 h5' fill='url(%23p12)'/%3E%3Crect x='6' y='6' class='w6 h6' fill='url(%23p12)'/%3E%3Crect x='5' y='8' class='w5 h8' fill='url(%23p12)'/%3E%3Crect x='6' y='6' class='w6 h6' fill='url(%23p13)'/%3E%3Crect x='7' y='6' class='w7 h6' fill='url(%23p14)'/%3E%3Crect x='6' y='7' class='w6 h7' fill='url(%23p14)'/%3E%3Crect x='7' y='6' class='w7 h6' fill='url(%23p15)'/%3E%3Crect x='6' y='7' class='w6 h7' fill='url(%23p15)'/%3E%3Crect x='7' y='6' class='w7 h6' fill='url(%23p16)'/%3E%3Crect x='6' y='7' class='w6 h7' fill='url(%23p16)'/%3E%3Crect x='7' y='7' class='w7 h7' fill='url(%23p17)'/%3E%3Crect x='7' y='7' class='w7 h7' fill='url(%23p18)'/%3E%3Crect x='7' y='7' class='w7 h7' fill='url(%23p19)'/%3E%3Crect x='7' y='7' class='w7 h7' fill='url(%23p20)'/%3E%3Crect x='8' y='7' class='w8 h7' fill='url(%23p21)'/%3E%3Crect x='7' y='8' class='w7 h8' fill='url(%23p21)'/%3E%3Crect x='8' y='7' class='w8 h7' fill='url(%23p22)'/%3E%3Crect x='7' y='8' class='w7 h8' fill='url(%23p22)'/%3E%3C/svg%3E");
+    --aura-focus-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' shape-rendering='crispEdges' fill='oklch(0.6 0.14 143)'%3E%3Cstyle%3Epattern rect%7Bwidth:1px%3Bheight:1px%7D.w3%7Bwidth:calc(100%25 - 6px)%7D.w1%7Bwidth:calc(100%25 - 2px)%7D.w0%7Bwidth:calc(100%25 - 0px)%7D.w2%7Bwidth:calc(100%25 - 4px)%7D.w4%7Bwidth:calc(100%25 - 8px)%7D.h0%7Bheight:calc(100%25 - 0px)%7D.h1%7Bheight:calc(100%25 - 2px)%7D.h3%7Bheight:calc(100%25 - 6px)%7D.h2%7Bheight:calc(100%25 - 4px)%7D.h4%7Bheight:calc(100%25 - 8px)%7D%3C/style%3E%3Cdefs%3E%3Cpattern id='p' width='8' height='8' patternUnits='userSpaceOnUse'/%3E%3Cpattern id='p0' href='%23p'%3E%3Crect x='0' y='0'/%3E%3C/pattern%3E%3Cpattern id='p1' href='%23p'%3E%3Crect x='4' y='4'/%3E%3C/pattern%3E%3Cpattern id='p2' href='%23p'%3E%3Crect x='4' y='0'/%3E%3C/pattern%3E%3Cpattern id='p3' href='%23p'%3E%3Crect x='0' y='4'/%3E%3C/pattern%3E%3Cpattern id='p4' href='%23p'%3E%3Crect x='2' y='2'/%3E%3C/pattern%3E%3Cpattern id='p5' href='%23p'%3E%3Crect x='6' y='6'/%3E%3C/pattern%3E%3Cpattern id='p6' href='%23p'%3E%3Crect x='6' y='2'/%3E%3C/pattern%3E%3Cpattern id='p7' href='%23p'%3E%3Crect x='2' y='6'/%3E%3C/pattern%3E%3Cpattern id='p8' href='%23p'%3E%3Crect x='2' y='0'/%3E%3C/pattern%3E%3Cpattern id='p9' href='%23p'%3E%3Crect x='6' y='4'/%3E%3C/pattern%3E%3Cpattern id='p10' href='%23p'%3E%3Crect x='6' y='0'/%3E%3C/pattern%3E%3Cpattern id='p11' href='%23p'%3E%3Crect x='2' y='4'/%3E%3C/pattern%3E%3Cpattern id='p12' href='%23p'%3E%3Crect x='0' y='2'/%3E%3C/pattern%3E%3Cpattern id='p13' href='%23p'%3E%3Crect x='4' y='6'/%3E%3C/pattern%3E%3Cpattern id='p14' href='%23p'%3E%3Crect x='4' y='2'/%3E%3C/pattern%3E%3Cpattern id='p15' href='%23p'%3E%3Crect x='0' y='6'/%3E%3C/pattern%3E%3Cpattern id='p16' href='%23p'%3E%3Crect x='1' y='1'/%3E%3C/pattern%3E%3Cpattern id='p17' href='%23p'%3E%3Crect x='5' y='5'/%3E%3C/pattern%3E%3Cpattern id='p18' href='%23p'%3E%3Crect x='5' y='1'/%3E%3C/pattern%3E%3Cpattern id='p19' href='%23p'%3E%3Crect x='1' y='5'/%3E%3C/pattern%3E%3Cpattern id='p20' href='%23p'%3E%3Crect x='3' y='3'/%3E%3C/pattern%3E%3Cpattern id='p21' href='%23p'%3E%3Crect x='7' y='7'/%3E%3C/pattern%3E%3Cpattern id='p22' href='%23p'%3E%3Crect x='7' y='3'/%3E%3C/pattern%3E%3Cpattern id='p23' href='%23p'%3E%3Crect x='3' y='7'/%3E%3C/pattern%3E%3Cpattern id='p24' href='%23p'%3E%3Crect x='3' y='1'/%3E%3C/pattern%3E%3Cpattern id='p25' href='%23p'%3E%3Crect x='7' y='5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='3' y='0' class='w3 h0' fill='url(%23p0)'/%3E%3Crect x='1' y='1' class='w1 h1' fill='url(%23p0)'/%3E%3Crect x='0' y='3' class='w0 h3' fill='url(%23p0)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p1)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p1)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p2)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p2)'/%3E%3Crect x='2' y='1' class='w2 h1' fill='url(%23p3)'/%3E%3Crect x='1' y='2' class='w1 h2' fill='url(%23p3)'/%3E%3Crect x='3' y='1' class='w3 h1' fill='url(%23p4)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p4)'/%3E%3Crect x='1' y='3' class='w1 h3' fill='url(%23p4)'/%3E%3Crect x='3' y='1' class='w3 h1' fill='url(%23p5)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p5)'/%3E%3Crect x='1' y='3' class='w1 h3' fill='url(%23p5)'/%3E%3Crect x='4' y='1' class='w4 h1' fill='url(%23p6)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p6)'/%3E%3Crect x='1' y='4' class='w1 h4' fill='url(%23p6)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p7)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p8)'/%3E%3Crect x='2' y='2' class='w2 h2' fill='url(%23p9)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p10)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p10)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p11)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p11)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p12)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p12)'/%3E%3Crect x='3' y='2' class='w3 h2' fill='url(%23p13)'/%3E%3Crect x='2' y='3' class='w2 h3' fill='url(%23p13)'/%3E%3Crect x='4' y='2' class='w4 h2' fill='url(%23p14)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p14)'/%3E%3Crect x='2' y='4' class='w2 h4' fill='url(%23p14)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p15)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p16)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p17)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p18)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p19)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p20)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p21)'/%3E%3Crect x='3' y='3' class='w3 h3' fill='url(%23p22)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p23)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p23)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p24)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p24)'/%3E%3Crect x='4' y='3' class='w4 h3' fill='url(%23p25)'/%3E%3Crect x='3' y='4' class='w3 h4' fill='url(%23p25)'/%3E%3C/svg%3E");
+    --led-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' shape-rendering='crispEdges'%3E%3Cpath fill='oklch(0.88 0.15 146)' d='M8 0h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM9 3h1v1h-1zM2 4h1v1h-1zM10 4h1v1h-1zM12 4h1v1h-1zM3 5h1v1h-1zM2 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM10 8h1v1h-1zM12 8h1v1h-1zM3 9h1v1h-1zM2 10h1v1h-1zM4 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM10 10h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM12 12h1v1h-1z'/%3E%3C/svg%3E");
+  }
+}
+
+/*
+ * More contrast on request: edges step up to neutral-5 and faint ink to
+ * neutral-7. The steps resolve per theme because dark redefines the ramp on
+ * the same element. The dark copy matches the dark block's specificity.
+ */
+@media (prefers-contrast: more) {
+  :root,
+  .dark {
+    --border: var(--neutral-5);
+    --faint-foreground: var(--neutral-7);
+
+    @variant dark {
+      --border: var(--neutral-5);
+      --faint-foreground: var(--neutral-7);
+    }
+  }
+}
+
+/*
+ * Type roles that set family, size, line height, and tracking together.
+ * Line heights are unitless, each the role's whole pixel line over its size.
+ *
+ * Departure Mono is drawn on an 11px grid, so the pixel roles use px
+ * multiples of 11 and never follow the root font size off the grid. It
+ * has one weight, so it never fake-bolds. Names set caps with one font
+ * pixel of tracking, calc(1em / 11). Values keep their case, so a unit
+ * such as kHz stays accurate, and take no tracking.
+ */
+
+/* Each page's h1: 33/36, 44/48 from md. */
+@utility type-display {
+  font-family: var(--font-pixel);
+  font-size: 33px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.091;
+  letter-spacing: calc(1em / 11);
+  text-transform: uppercase;
+  text-wrap: balance;
+
+  @variant md {
+    font-size: 44px;
+  }
+}
+
+/* Section titles, 22/24. */
+@utility type-heading-1 {
+  font-family: var(--font-pixel);
+  font-size: 22px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.091;
+  letter-spacing: calc(1em / 11);
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+/* Every label, in --font-label. A normal-case span keeps a unit's case inside one. */
+@utility type-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.4546;
+  letter-spacing: calc(1em / 11);
+  text-transform: uppercase;
+}
+
+/* Values: badges, keys, timestamps, and readings. */
+@utility type-pixel {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.4546;
+  letter-spacing: 0;
+}
+
+@utility type-pixel-2x {
+  font-family: var(--font-pixel);
+  font-size: 22px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.2728;
+  letter-spacing: 0;
+}
+
+@utility type-wordmark {
+  font-family: var(--font-brand);
+  font-size: 22px;
+  font-weight: 400;
+  font-synthesis-weight: none;
+  line-height: 1.091;
+  letter-spacing: 0;
+}
+
+/*
+ * The human's voice. Component titles at 16/20 and 14/20, in sentence case
+ * at 700. Controls are 500 and reading text 400.
+ */
+@utility type-heading-2 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+@utility type-heading-3 {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.4286;
+  letter-spacing: 0;
+}
+
+@utility type-body-lg {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+@utility type-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.4286;
+  letter-spacing: 0;
+}
+
+@utility type-caption {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.3334;
+  letter-spacing: 0;
+}
+
+/* Code only. It resets case and tracking, so an identifier keeps its spelling inside a label. */
+@utility type-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.3334;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Pair with underline or hover:underline. */
+@utility link-underline {
+  text-underline-position: from-font;
+  text-decoration-thickness: from-font;
+}
+
+/*
+ * The alloy rides on Tailwind's shadow slots so it composes with ring-*
+ * edges and focus rings. The contact line and the drop sit in --tw-shadow,
+ * the last layer, so a 2px focus ring covers the line and shadow-none drops
+ * both. The lips, shade, and sill sit in --tw-inset-shadow. The sheen is the
+ * background image over the bg-* fill.
+ */
+
+/*
+ * Raised key: buttons, toggles, and thumbs. Pressed, it takes the inverse
+ * bevel and loses its shadow. Popup triggers keep their place on press.
+ */
+@utility alloy-raised {
+  --tw-inset-shadow: var(--alloy-highlight), var(--alloy-lip);
+  --tw-shadow: var(--alloy-line), var(--alloy-drop);
+  background-image: var(--alloy-sheen);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+
+  @variant active {
+    &:not([aria-haspopup]) {
+      --tw-inset-shadow: var(--alloy-shade), var(--alloy-sill);
+      --tw-shadow: 0 0 #0000;
+    }
+  }
+}
+
+/* Hovered secondary or outline key: the glint under the sheen. */
+@utility alloy-lit {
+  background-image:
+    var(--alloy-sheen), linear-gradient(var(--alloy-glint), var(--alloy-glint));
+}
+
+/*
+ * A joined group of keys is one raised part. The group casts the line and
+ * drop, and its items keep only their lips.
+ */
+@utility alloy-housing {
+  box-shadow: var(--alloy-line), var(--alloy-drop);
+
+  & > [data-slot] {
+    --tw-shadow: 0 0 #0000;
+  }
+}
+
+/* The highlighted item in a menu or list, edged inside in the border role. */
+@utility alloy-key {
+  @apply alloy-raised;
+  background-color: var(--secondary);
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
+}
+
+/*
+ * Selected key: a latched toggle, on the primary fill. Forced colors would
+ * erase the fill, so the key takes the system's Highlight pair instead, and
+ * keyboard focus draws an outline because the ring is a shadow.
+ */
+@utility alloy-selected {
+  @apply alloy-raised;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+
+  &:not([aria-invalid="true"]) {
+    border-color: var(--primary);
+  }
+
+  @media (forced-colors: active) {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    background-image: none;
+    box-shadow: none;
+    color: HighlightText;
+
+    &:focus-visible {
+      outline: 2px solid CanvasText;
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* Recessed field: the inverse bevel. */
+@utility alloy-recessed {
+  --tw-inset-shadow: var(--alloy-shade), var(--alloy-sill);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+
+/*
+ * Ordered dither: 1px pixels in the current color at four densities. Each
+ * density lights a superset of the pixels below it. They set
+ * background-image, so they combine with bg-* fills. A dithered block inside
+ * a hairline wants an odd size, so its pattern starts and ends lit.
+ */
+
+/* 1 pixel in 8: faint grain. */
+@utility dither-12 {
+  background-image:
+    conic-gradient(at 1px 1px, transparent 75%, currentColor 0),
+    conic-gradient(at 1px 1px, transparent 75%, currentColor 0);
+  background-position:
+    1px 0,
+    3px 2px;
+  background-size: 4px 4px;
+}
+
+/* 1 pixel in 4: chart areas. */
+@utility dither-25 {
+  background-image: conic-gradient(currentColor 25%, transparent 0);
+  background-size: 2px 2px;
+}
+
+/* A checkerboard: tracks, skeletons, and modal backdrops. */
+@utility dither-50 {
+  background-image: conic-gradient(
+    currentColor 25%,
+    transparent 0 50%,
+    currentColor 0 75%,
+    transparent 0
+  );
+  background-size: 2px 2px;
+}
+
+/* 3 pixels in 4: the dense step before solid. */
+@utility dither-75 {
+  background-image: conic-gradient(currentColor 75%, transparent 0);
+  background-size: 2px 2px;
+}
+
+/*
+ * A dithered ramp in the current color, sparse at the start and solid at
+ * the leading edge. It masks the whole element, so a text-* class sets the
+ * color.
+ */
+@utility dither-ramp {
+  background-color: currentColor;
+  mask: var(--ramp-mask) 0 0 / 100% 100% no-repeat;
+}
+
+/* The 12px beam under a page title, solid at the start and fading out. */
+@utility beam {
+  height: 12px;
+  background-color: currentColor;
+  mask: var(--beam-mask) 0 0 / 100% 100% no-repeat;
+}
+
+/*
+ * A sparse dither falloff in signal-dim a few px outside a floating surface.
+ * border-image paints it outside the border box, so the element's own
+ * overflow never clips it, and an inset outline draws the edge.
+ */
+@utility aura {
+  outline: 1px solid var(--aura-edge);
+  outline-offset: -1px;
+
+  @media not (forced-colors: active) {
+    border-image: var(--aura-image) var(--aura-spread) /
+      calc(var(--aura-spread) * 1px) / calc(var(--aura-spread) * 1px) stretch;
+  }
+}
+
+/* A 6px signal light with a sparse dither glow. */
+@utility led {
+  width: 6px;
+  height: 6px;
+  background-color: var(--signal);
+
+  @media not (forced-colors: active) {
+    border-image: var(--led-image) var(--led-spread) /
+      calc(var(--led-spread) * 1px) / calc(var(--led-spread) * 1px);
+  }
+}
+
+/*
+ * A focused field's aura, starting 2px out so it sits outside the focus
+ * ring. Its border-image hides the field's border, so the inset outline
+ * redraws it in the ring color. A field inside a popover keeps only the
+ * ring, because the popover carries its own aura.
+ */
+@utility aura-focus {
+  @media not (forced-colors: active) {
+    &:not(:where([data-slot="popover-content"] *)) {
+      border-image: var(--aura-focus-image) var(--aura-focus-spread) /
+        calc(var(--aura-focus-spread) * 1px) /
+        calc(var(--aura-focus-spread) * 1px + 2px) stretch;
+      outline: 1px solid var(--ring);
+      outline-offset: -1px;
+    }
+  }
+}
+
+/*
+ * A 1px tick ruler. Ticks repeat every --tick-pitch, 4px by default, in the
+ * current color. Inside a hairline, make the width one more than a multiple
+ * of the pitch so the strip starts and ends on a tick.
+ */
+@utility tick-strip {
+  height: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0 1px,
+    transparent 1px var(--tick-pitch, 4px)
+  );
+}
+
+/*
+ * Oscilloscope glow in the current color: a 1px core mixed toward white,
+ * the trace, an 8px halo, and a 16px afterglow. It takes the shadow slot,
+ * so a raised key drops its contact line while it glows. Kevelle uses it in
+ * dark only, on keyboard focus and drag.
+ */
+@utility glow {
+  --tw-shadow:
+    0 0 0 1px color-mix(in oklch, currentColor 60%, white),
+    0 0 0 3px currentColor, 0 0 8px currentColor,
+    0 0 16px color-mix(in oklch, currentColor 60%, transparent);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    @apply bg-signal text-signal-foreground;
+  }
+
+  /* Tailwind 4 leaves buttons on the default cursor. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
