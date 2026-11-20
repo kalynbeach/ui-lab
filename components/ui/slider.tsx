@@ -93,7 +93,7 @@ function SliderIndicator({
 
 // The thumb's hidden range input takes focus, so focus draws with
 // has-focus-visible. A drag that starts on the track never presses the thumb,
-// so data-dragging lights it as well as :active. In dark the glow takes the
+// so in dark data-dragging glows as well as :active. The glow takes the
 // signal through text-signal.
 function SliderThumb({
   className,
@@ -103,9 +103,9 @@ function SliderThumb({
   return (
     <SliderThumbPart
       className={cn(
-        "block size-3 shrink-0 border border-ring bg-background alloy-raised shadow-none ring-ring transition-[color,box-shadow,border-color] select-none",
+        "block size-3 shrink-0 border border-ring bg-background alloy-raised shadow-none ring-ring select-none",
         "after:absolute after:-inset-2 pointer-coarse:after:-inset-4.25",
-        "not-data-disabled:hover:ring-2 active:ring-2 has-focus-visible:ring-2 has-focus-visible:outline-hidden data-dragging:ring-2",
+        "has-focus-visible:ring-2 has-focus-visible:outline-hidden has-focus-visible:aura-focus",
         "dark:text-signal dark:active:border-signal-bright dark:active:glow dark:has-focus-visible:border-signal-bright dark:has-focus-visible:glow dark:data-dragging:border-signal-bright dark:data-dragging:glow",
         "data-disabled:pointer-events-none",
         className

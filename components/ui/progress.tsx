@@ -51,6 +51,8 @@ function ProgressTrack({
   )
 }
 
+// Under reduced motion an indeterminate bar is a still dither across the
+// track, since a still third-width bar would read as a third done.
 function ProgressIndicator({
   className,
   ...props
@@ -59,7 +61,7 @@ function ProgressIndicator({
   return (
     <ProgressIndicatorPart
       className={cn(
-        "h-full dither-ramp text-signal transition-[width] motion-reduce:transition-none data-indeterminate:w-1/3 data-indeterminate:animate-progress-sweep motion-reduce:data-indeterminate:w-full motion-reduce:data-indeterminate:animate-none rtl:-scale-x-100",
+        "h-full forced-fill dither-ramp text-signal transition-[width] motion-reduce:transition-none data-indeterminate:w-1/3 data-indeterminate:animate-progress-sweep motion-reduce:data-indeterminate:w-full motion-reduce:data-indeterminate:animate-none motion-reduce:data-indeterminate:bg-transparent motion-reduce:data-indeterminate:dither-50 motion-reduce:data-indeterminate:mask-none rtl:-scale-x-100 rtl:data-indeterminate:ms-auto rtl:data-indeterminate:[animation-direction:reverse] forced-colors:motion-reduce:data-indeterminate:bg-transparent!",
         className
       )}
       {...props}

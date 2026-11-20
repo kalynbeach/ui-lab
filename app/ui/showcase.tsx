@@ -348,7 +348,7 @@ const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
 
 function SliderSection() {
-  const states = ["rest", "hover", "focus", "drag", "disabled"] as const
+  const states = ["rest", "focus", "drag", "disabled"] as const
 
   return (
     <Section title="Slider">
@@ -407,7 +407,7 @@ function SliderSection() {
                         data-preview={
                           state === "rest" || state === "disabled"
                             ? undefined
-                            : { hover: "hover", focus: "focus", drag: "drag" }[state]
+                            : { focus: "focus", drag: "drag" }[state]
                         }
                       />
                     </SliderTrack>
