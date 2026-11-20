@@ -29,13 +29,6 @@ export const PLAYER_KEYS = {
     description: "Repeat",
     command: (state) => ({ type: "set-repeat", repeat: REPEAT_CYCLE[state.settings.repeat] }),
   },
-  t: {
-    description: "Remaining time",
-    command: (state) => ({
-      type: "set-time",
-      time: state.settings.time === "elapsed" ? "remaining" : "elapsed",
-    }),
-  },
 } as const satisfies Record<
   string,
   { readonly description: string; readonly command: (state: PlayerState) => PlayerCommand }
@@ -120,7 +113,6 @@ export function WavePlayerFrame({
   useLetterKey("m", ref)
   useLetterKey("s", ref)
   useLetterKey("r", ref)
-  useLetterKey("t", ref)
 
   const frame = (
     // The region takes focus from a click on its body, so Space reaches it, without adding a tab stop.

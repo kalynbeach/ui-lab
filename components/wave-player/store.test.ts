@@ -457,7 +457,7 @@ describe("output", () => {
 })
 
 describe("saved settings", () => {
-  const SAVED = JSON.stringify({ version: 1, level: 0.3, muted: true, shuffle: true, repeat: "one", time: "remaining" })
+  const SAVED = JSON.stringify({ version: 1, level: 0.3, muted: true, shuffle: true, repeat: "one" })
 
   test("restore applies the save through commands, plays nothing, and the next play uses it", () => {
     const { store, station, strips, log } = setup({ stored: SAVED })
@@ -469,7 +469,6 @@ describe("saved settings", () => {
       muted: true,
       shuffle: true,
       repeat: "one",
-      time: "remaining",
     })
     expect(station.openStrip).not.toHaveBeenCalled()
 
@@ -491,9 +490,9 @@ describe("saved settings", () => {
     expect(storage.write).not.toHaveBeenCalled()
     expect(storage.text).toBe(SAVED)
 
-    store.send({ type: "set-time", time: "elapsed" })
+    store.send({ type: "set-repeat", repeat: "all" })
     elapse(SAVE_DELAY_MS)
-    expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, time: "elapsed", level: 0.3 })
+    expect(JSON.parse(storage.text!)).toMatchObject({ version: 1, repeat: "all", level: 0.3 })
   })
 
   test("a level drag writes once after it settles, with the last value", () => {
@@ -580,7 +579,7 @@ describe("saved settings", () => {
 
   test("a mute set before restore survives the saved level, which would unmute", () => {
     const { store } = setup({
-      stored: JSON.stringify({ version: 1, level: 0.5, muted: false, shuffle: false, repeat: "off", time: "elapsed" }),
+      stored: JSON.stringify({ version: 1, level: 0.5, muted: false, shuffle: false, repeat: "off" }),
     })
 
     store.send({ type: "set-muted", muted: true })

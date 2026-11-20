@@ -241,7 +241,6 @@ describe("every remaining command in every status, under every repeat and shuffl
         { type: "set-level", level: 0.2 },
         { type: "set-muted", muted: true },
         { type: "set-repeat", repeat: mode.repeat === "one" ? "off" : "one" },
-        { type: "set-time", time: "remaining" },
         { type: "set-shuffle", shuffle: !mode.shuffle },
       ]
 
@@ -423,7 +422,6 @@ describe("settings", () => {
         { type: "set-muted", muted: true },
         { type: "set-shuffle", shuffle: true },
         { type: "set-repeat", repeat: "one" },
-        { type: "set-time", time: "remaining" },
       ],
       empty
     )
@@ -433,7 +431,6 @@ describe("settings", () => {
       muted: true,
       shuffle: true,
       repeat: "one",
-      time: "remaining",
     })
     expect(currentOf(intent.queue)).toBeNull()
   })
@@ -479,16 +476,14 @@ describe("settings", () => {
       { type: "set-level", level: 1 },
       { type: "set-muted", muted: false },
       { type: "set-shuffle", shuffle: false },
-      { type: "set-time", time: "elapsed" },
     ] as const)
       expect(planCommand(command, at(intent))).toEqual({ intent, effect: none })
   })
 
-  test("repeat and time keep the queue", () => {
+  test("repeat keeps the queue", () => {
     const intent = on("b")
 
     expect(planCommand({ type: "set-repeat", repeat: "one" }, at(intent)).intent.queue).toBe(intent.queue)
-    expect(planCommand({ type: "set-time", time: "remaining" }, at(intent)).intent.queue).toBe(intent.queue)
   })
 })
 

@@ -3,7 +3,7 @@
 // Each part reads the player itself, so a variant passes only layout classes.
 // Agents find a control by whole words in its name, so no two names share
 // one: Play, Previous track, Next track, Seek, Volume, Level, Mute, Shuffle,
-// Repeat (Off, All, One), Remaining time, Settings. Tooltips are hidden from
+// Repeat (Off, All, One), Settings. Tooltips are hidden from
 // agents, which would otherwise list each control twice.
 
 import * as React from "react"

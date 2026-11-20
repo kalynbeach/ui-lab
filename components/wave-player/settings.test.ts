@@ -10,7 +10,7 @@ import {
 
 describe("parseSettings", () => {
   test("reads back what serializeSettings wrote", () => {
-    const settings: Settings = { level: 0.42, muted: true, shuffle: true, repeat: "all", time: "remaining" }
+    const settings: Settings = { level: 0.42, muted: true, shuffle: true, repeat: "all" }
 
     expect(parseSettings(serializeSettings(settings))).toEqual(settings)
   })
@@ -24,7 +24,7 @@ describe("parseSettings", () => {
 
   test("a field that does not check out takes its default, and the level clamps", () => {
     expect(
-      parseSettings(JSON.stringify({ version: 1, level: 7, muted: "yes", shuffle: 1, repeat: "twice", time: null }))
+      parseSettings(JSON.stringify({ version: 1, level: 7, muted: "yes", shuffle: 1, repeat: "twice" }))
     ).toEqual({ ...DEFAULT_SETTINGS, level: 1 })
     expect(parseSettings(JSON.stringify({ version: 1, level: -2 }))?.level).toBe(0)
   })

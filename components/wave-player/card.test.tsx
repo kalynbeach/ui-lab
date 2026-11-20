@@ -8,7 +8,7 @@ import { AddFiles } from "@/app/wave-player/add-files"
 import { WavePlayerCard } from "./card"
 import { WavePlayerFrame } from "./frame"
 import { WavePlayerScreen, WavePlayerSettings, WavePlayerTransport } from "./parts"
-import { WavePlayerProgress, WavePlayerSeek, WavePlayerTime } from "./seek"
+import { WavePlayerClock, WavePlayerProgress, WavePlayerSeek } from "./seek"
 import { TEST_TRACKS, testPlayer } from "./testing"
 import { WavePlayerStore } from "./wave-player"
 
@@ -59,6 +59,8 @@ async function renderCard(
 const snapshot = (player: ReturnType<typeof testPlayer>) => player.store.getSnapshot()
 
 const seek = () => screen.getByRole("slider", { name: "Seek" })
+const elapsed = () => document.querySelector('[data-slot="wave-player-elapsed"]')?.textContent
+const remaining = () => document.querySelector('[data-slot="wave-player-remaining"]')?.textContent
 
 test("each control is named and sends its command", async () => {
   const player = await renderCard()
@@ -84,9 +86,8 @@ test("each control is named and sends its command", async () => {
   await user.click(screen.getByRole("radio", { name: "One" }))
   expect(snapshot(player).settings.repeat).toBe("one")
 
-  await user.click(screen.getByRole("button", { name: "Remaining time" }))
-  expect(snapshot(player).settings.time).toBe("remaining")
-  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("−02:00")
+  expect(elapsed()).toBe("00:00")
+  expect(remaining()).toBe("−02:00")
 
   await user.click(screen.getByRole("button", { name: "Volume" }))
   await user.click(screen.getByRole("button", { name: "Mute" }))
@@ -274,7 +275,8 @@ test("a drag previews its target and seeks once on release", async () => {
   await pointer.down(30)
   await pointer.move(60)
   expect(player.store.playhead.position()).toBe(60)
-  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("01:00")
+  expect(elapsed()).toBe("01:00")
+  expect(remaining()).toBe("−01:00")
   expect(handle.seeks).toEqual([])
 
   await pointer.up(60)
@@ -330,7 +332,7 @@ test("an agent can find every control by name, press Play, set Level, and set Se
     expect(entry.label, `${entry.component} ${entry.ref} has no name`).toBeTruthy()
   }
   const labels = components.map((entry) => entry.label)
-  for (const label of ["Transport", "Play", "Seek", "Shuffle", "Repeat", "Volume", "Remaining time"]) {
+  for (const label of ["Transport", "Play", "Seek", "Shuffle", "Repeat", "Volume"]) {
     expect(labels, `${label} is missing from the snapshot`).toContain(label)
   }
   expect(components.filter((entry) => entry.component === "tooltip")).toEqual([])
@@ -366,12 +368,11 @@ test("the letter keys send their commands while the player holds focus", async (
   const user = userEvent.setup()
 
   screen.getByRole("region", { name: "WavePlayer" }).focus()
-  await user.keyboard("smrt")
+  await user.keyboard("smr")
   expect(snapshot(player).settings).toMatchObject({
     shuffle: true,
     muted: true,
     repeat: "all",
-    time: "remaining",
   })
 
   await user.keyboard("n")
@@ -389,7 +390,8 @@ test("a failed track shows the fault, unknown times, a disabled Seek, and what P
   expect(snapshot(player).status).toEqual({ kind: "failed", reason: "load" })
   expect(screen.getByText("FAULT")).toBeTruthy()
   expect(screen.getByText("Couldn't load the track")).toBeTruthy()
-  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("--:--")
+  expect(elapsed()).toBe("--:--")
+  expect(remaining()).toBe("--:--")
   expect(seek().hasAttribute("disabled") || seek().getAttribute("aria-disabled") === "true").toBe(true)
 
   const play = screen.getByRole("button", { name: "Play" })
@@ -421,8 +423,9 @@ test("no status badge shows while idle, playing, or paused", async () => {
 test("with no tracks, every time reads --:--", async () => {
   await renderCard(<WavePlayerCard />, [])
 
-  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("--:--")
-  expect(screen.getAllByText("--:--")).toHaveLength(2)
+  expect(elapsed()).toBe("--:--")
+  expect(remaining()).toBe("--:--")
+  expect(screen.getAllByText("--:--")).toHaveLength(3)
 })
 
 test("after No Web Audio, Play turns off and hands its focus to the player", async () => {
@@ -470,7 +473,7 @@ test("the small variants' parts: the line seek, the progress, and the Settings p
     <WavePlayerFrame kind="bar">
       <WavePlayerSeek appearance="line" />
       <WavePlayerProgress />
-      <WavePlayerTime />
+      <WavePlayerClock />
       <WavePlayerSettings />
     </WavePlayerFrame>
   )

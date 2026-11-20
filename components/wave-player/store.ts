@@ -863,7 +863,6 @@ export function createPlayerStore(
         send({ type: "set-muted", muted: target.muted })
         send({ type: "set-shuffle", shuffle: target.shuffle })
         send({ type: "set-repeat", repeat: target.repeat })
-        send({ type: "set-time", time: target.time })
       }
 
       restored = true

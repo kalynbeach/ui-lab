@@ -24,13 +24,6 @@ import {
   SliderThumb,
   SliderTrack,
 } from "@/components/ui/slider"
-import { Toggle } from "@/components/ui/toggle"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipShortcut,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 import { usePlayer, usePlayerStore } from "./context"
 import { formatClock, formatRemaining, seekValueText, UNKNOWN_TIME } from "./format"
@@ -371,49 +364,64 @@ function Bars({
 
 const wholeSeconds = (position: number) => Math.floor(position)
 
-export function WavePlayerTime({ className }: Styled) {
-  const store = usePlayerStore("WavePlayerTime")
+// An unknown time is not a live reading, so --:-- stays muted.
+const liveTone = (known: boolean) =>
+  known ? "text-foreground dark:text-signal-bright" : "text-muted-foreground"
+
+// The time since the start. A seek bar drag previews on the playhead, so this
+// and the remaining time read the drag's target while it lasts.
+export function WavePlayerElapsed({ className }: Styled) {
+  const store = usePlayerStore("WavePlayerElapsed")
   const known = usePlayer(timesKnown)
-  const duration = usePlayer((state) => state.current?.track.duration ?? null)
-  const remaining = usePlayer((state) => state.settings.time === "remaining")
   const second = usePlayhead(store.playhead, wholeSeconds)
 
   useNeed("current")
 
-  const text = !known
-    ? UNKNOWN_TIME
-    : remaining
-      ? formatRemaining(second, duration)
-      : formatClock(second)
+  return (
+    <span
+      data-slot="wave-player-elapsed"
+      className={cn("type-pixel tabular-nums", liveTone(known), className)}
+    >
+      {known ? formatClock(second) : UNKNOWN_TIME}
+    </span>
+  )
+}
+
+export function WavePlayerRemaining({ className }: Styled) {
+  const store = usePlayerStore("WavePlayerRemaining")
+  const known = usePlayer(timesKnown)
+  const duration = usePlayer((state) => state.current?.track.duration ?? null)
+  const second = usePlayhead(store.playhead, wholeSeconds)
+
+  useNeed("current")
 
   return (
-    <Tooltip type="label" shortcut="t">
-      <TooltipTrigger
-        render={
-          <Toggle
-            aria-label="Remaining time"
-            variant="outline"
-            size="sm"
-            pressed={remaining}
-            onPressedChange={(pressed) =>
-              store.send({ type: "set-time", time: pressed ? "remaining" : "elapsed" })
-            }
-            // An unknown time is not a live reading, so --:-- stays muted.
-            className={cn(
-              "type-pixel tabular-nums",
-              known ? "not-data-pressed:dark:text-signal-bright" : "text-muted-foreground",
-              className
-            )}
-          />
-        }
+    <span
+      data-slot="wave-player-remaining"
+      className={cn("type-pixel text-muted-foreground tabular-nums", className)}
+    >
+      {known ? formatRemaining(second, duration) : UNKNOWN_TIME}
+    </span>
+  )
+}
+
+// Elapsed over the duration: the one time readout of the mini and the bar.
+export function WavePlayerClock({ className }: Styled) {
+  const duration = usePlayer((state) =>
+    timesKnown(state) ? (state.current?.track.duration ?? null) : null
+  )
+
+  return (
+    <span data-slot="wave-player-clock" className={cn("flex items-baseline tabular-nums", className)}>
+      <WavePlayerElapsed />
+      <span
+        data-slot="wave-player-clock-duration"
+        className="type-pixel whitespace-pre text-muted-foreground"
       >
-        {text}
-      </TooltipTrigger>
-      <TooltipContent data-agent-hidden="">
-        Remaining time
-        <TooltipShortcut />
-      </TooltipContent>
-    </Tooltip>
+        {" / "}
+        {formatClock(duration)}
+      </span>
+    </span>
   )
 }
 

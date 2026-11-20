@@ -515,7 +515,6 @@ export type PlayerCommand =
   | { readonly type: "set-muted"; readonly muted: boolean }
   | { readonly type: "set-shuffle"; readonly shuffle: boolean }
   | { readonly type: "set-repeat"; readonly repeat: Settings["repeat"] }
-  | { readonly type: "set-time"; readonly time: Settings["time"] }
 
 /**
  * The settings a command sets on purpose, whether or not their values change.
@@ -531,8 +530,6 @@ export function settingsSetBy(command: PlayerCommand): readonly (keyof Settings)
       return ["shuffle"]
     case "set-repeat":
       return ["repeat"]
-    case "set-time":
-      return ["time"]
     default:
       return []
   }
@@ -659,8 +656,6 @@ export function planCommand(command: PlayerCommand, at: Situation): Plan {
 
     case "set-repeat":
       return configure(intent, { repeat: command.repeat })
-    case "set-time":
-      return configure(intent, { time: command.time })
     case "select-track": {
       if (command.id === null) return { intent: select(intent, null), effect: NONE }
 

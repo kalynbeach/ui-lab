@@ -5,7 +5,6 @@
 
 export type Repeat = "off" | "all" | "one"
 
-export type TimeMode = "elapsed" | "remaining"
 
 export type Settings = {
   /** 0 to 1. The strip squares it under the player's ceiling. */
@@ -14,8 +13,6 @@ export type Settings = {
   readonly muted: boolean
   readonly shuffle: boolean
   readonly repeat: Repeat
-  /** What the time readout counts. */
-  readonly time: TimeMode
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,7 +20,6 @@ export const DEFAULT_SETTINGS: Settings = {
   muted: false,
   shuffle: false,
   repeat: "off",
-  time: "elapsed",
 }
 
 /** Where settings persist. read() and write() never throw: a store that refuses leaves the player usable. */
@@ -61,7 +57,7 @@ export function parseSettings(text: string | null): Settings | null {
 
   if (record.version !== VERSION) return null
 
-  const { level, muted, shuffle, repeat, time } = record
+  const { level, muted, shuffle, repeat } = record
 
   return {
     level:
@@ -74,8 +70,6 @@ export function parseSettings(text: string | null): Settings | null {
       repeat === "off" || repeat === "all" || repeat === "one"
         ? repeat
         : DEFAULT_SETTINGS.repeat,
-    time:
-      time === "elapsed" || time === "remaining" ? time : DEFAULT_SETTINGS.time,
   }
 }
 

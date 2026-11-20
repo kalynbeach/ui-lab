@@ -15,7 +15,27 @@ import {
   WavePlayerTransport,
   WavePlayerVolume,
 } from "./parts"
-import { WavePlayerSeek, WavePlayerTime } from "./seek"
+import { WavePlayerElapsed, WavePlayerRemaining, WavePlayerSeek } from "./seek"
+
+// The transport stays centered, with the smaller keys on either side. Under
+// 312px, and on a coarse pointer, where every key is 44px, the smaller keys
+// move to a second row, so nothing overlaps.
+export function WavePlayerControls({ className }: { readonly className?: string }) {
+  return (
+    <div className={cn("@container", className)}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-3 pointer-coarse:grid-cols-[auto_auto] pointer-coarse:justify-center @max-[19.5rem]:grid-cols-[auto_auto] @max-[19.5rem]:justify-center">
+        <div className="flex items-center gap-2 justify-self-start pointer-coarse:order-2 @max-[19.5rem]:order-2">
+          <WavePlayerShuffle size="sm" />
+          <WavePlayerVolume size="sm" />
+        </div>
+        <WavePlayerTransport className="pointer-coarse:order-1 pointer-coarse:col-span-2 pointer-coarse:justify-self-center @max-[19.5rem]:order-1 @max-[19.5rem]:col-span-2 @max-[19.5rem]:justify-self-center" />
+        <div className="justify-self-end pointer-coarse:order-3 @max-[19.5rem]:order-3">
+          <WavePlayerRepeat size="sm" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function WavePlayerCard({ className }: { readonly className?: string }) {
   return (
@@ -38,18 +58,14 @@ export function WavePlayerCard({ className }: { readonly className?: string }) {
         <WavePlayerByline />
         <WavePlayerIndex className="ml-auto shrink-0" />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         <WavePlayerSeek appearance="waveform" />
-        <WavePlayerTime className="self-start" />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3">
-        <WavePlayerTransport />
-        <div className="flex items-center gap-2">
-          <WavePlayerShuffle size="sm" />
-          <WavePlayerRepeat size="sm" />
-          <WavePlayerVolume size="sm" />
+        <div className="flex h-4 items-center justify-between gap-2">
+          <WavePlayerElapsed />
+          <WavePlayerRemaining />
         </div>
       </div>
+      <WavePlayerControls />
     </WavePlayerFrame>
   )
 }
