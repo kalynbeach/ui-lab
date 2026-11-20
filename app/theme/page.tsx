@@ -15,6 +15,12 @@ import {
   SliderValue,
 } from "@ui-sdk/react/slider"
 import { Toggle } from "@ui-sdk/react/toggle"
+import {
+  Progress,
+  ProgressIndicator,
+  ProgressLabel,
+  ProgressTrack,
+} from "@ui-sdk/react/progress"
 import type { Metadata } from "next"
 import { buttonKeys, previews, toggleKey } from "./keys"
 
@@ -68,8 +74,25 @@ const typeRoles = [
   ["type-label", "Label"],
   ["type-pixel", "Pixel 03:41 / 48 kHz"],
   ["type-pixel-2x", "Pixel 2x 03:41"],
-  ["type-wordmark", "Wordmark"],
   ["type-code", "type-code"],
+  ["type-serif-display", "Serif display"],
+  ["type-serif-title", "Serif title"],
+  ["type-lede", "Lede, with oldstyle figures 1234567890."],
+  ["type-prose", "Prose: the quick brown fox jumps over the lazy dog, again."],
+  ["type-pull-quote", "Pull quote"],
+  ["type-serif-caption", "Serif caption"],
+  ["type-wordmark", "ui-lab"],
+] as const
+
+const headingFaces = ["headings-sans", "headings-mono", "headings-serif"]
+
+const alloys = [
+  ["alloy-raised", "border-border bg-secondary"],
+  ["alloy-hover", "border-border bg-secondary alloy-raised"],
+  ["alloy-ghost", "border-transparent"],
+  ["alloy-selected", "border"],
+  ["alloy-well", "border-border border-b-input bg-muted/50 dark:bg-background"],
+  ["alloy-recessed", "border-border bg-muted dark:bg-background"],
 ] as const
 
 const dithers = ["dither-12", "dither-25", "dither-50", "dither-75"]
@@ -154,6 +177,35 @@ export default function ThemePage() {
                 {utility}
               </span>
               <span className={utility}>{sample}</span>
+            </li>
+          ))}
+        </ul>
+        <ul className="flex flex-col divide-y">
+          {headingFaces.map((face) => (
+            <li
+              key={face}
+              className={`flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-6 ${face}`}
+            >
+              <span className="type-code shrink-0 text-muted-foreground sm:w-36">
+                {face}
+              </span>
+              <span className="type-heading-1">Section title</span>
+              <span className="type-heading-2">Component title</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Alloy">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+          {alloys.map(([utility, base]) => (
+            <li key={utility} className="flex flex-col items-start gap-2">
+              <div
+                className={`flex h-8 w-full items-center px-2.5 text-sm font-medium ${base} ${utility}`}
+              >
+                {utility === "alloy-well" ? "Field" : "Key"}
+              </div>
+              <span className="type-code text-muted-foreground">{utility}</span>
             </li>
           ))}
         </ul>
@@ -261,7 +313,7 @@ export default function ThemePage() {
                 <SliderIndicator className="h-full bg-primary" />
                 <SliderThumb
                   aria-label="Volume"
-                  className="size-3 border border-ring bg-background alloy-raised shadow-none ring-ring transition-[color,box-shadow] hover:ring-2 active:ring-2 has-focus-visible:ring-2 dark:text-signal dark:active:border-signal-bright dark:active:glow dark:has-focus-visible:border-signal-bright dark:has-focus-visible:glow dark:data-dragging:border-signal-bright dark:data-dragging:glow"
+                  className="size-3 border border-ring bg-background alloy-raised shadow-none ring-ring has-focus-visible:ring-2 has-focus-visible:outline-hidden has-focus-visible:aura-focus dark:text-signal dark:active:border-signal-bright dark:active:glow dark:has-focus-visible:border-signal-bright dark:has-focus-visible:glow dark:data-dragging:border-signal-bright dark:data-dragging:glow"
                 />
               </SliderTrack>
             </SliderControl>
@@ -272,9 +324,15 @@ export default function ThemePage() {
               <MeterValue className="type-pixel text-muted-foreground tabular-nums" />
             </div>
             <MeterTrack className="relative flex h-2 w-full items-center overflow-hidden bg-muted dither-25 text-faint-foreground alloy-recessed dark:bg-background">
-              <MeterIndicator className="h-full dither-ramp text-signal" />
+              <MeterIndicator className="h-full forced-fill dither-ramp text-signal" />
             </MeterTrack>
           </Meter>
+          <Progress value={null} className="flex flex-col gap-3">
+            <ProgressLabel className="type-label">Connecting</ProgressLabel>
+            <ProgressTrack className="relative flex h-2 w-full items-center overflow-hidden bg-muted dither-25 text-faint-foreground alloy-recessed dark:bg-background">
+              <ProgressIndicator className="h-full w-1/3 forced-fill dither-ramp text-signal animate-progress-sweep motion-reduce:w-full motion-reduce:animate-none motion-reduce:bg-transparent motion-reduce:dither-50 motion-reduce:mask-none forced-colors:motion-reduce:bg-transparent!" />
+            </ProgressTrack>
+          </Progress>
         </div>
       </Section>
     </main>
