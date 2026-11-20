@@ -58,6 +58,8 @@ The variants are `WavePlayerCard`, `WavePlayerMini`, `WavePlayerBar`, and `WaveP
 | `frame.tsx` | `WavePlayerFrame`, the region that every variant renders inside. It owns the keyboard shortcuts. |
 | `agent.tsx` | `WavePlayerAgent`, the agent bridge |
 
+Every time readout prints `--:--` until the player knows the time. After a failure that trying again can't fix, such as a browser with no Web Audio, Play turns off and Previous and Next stay on.
+
 The core has no React in it. `model.ts` decides what each command does, `store.ts` runs it against the browser, and `settings.ts` stores the settings in `localStorage` under the key `wave-player`.
 
 ### Keyboard
@@ -87,7 +89,7 @@ The bridge leaves a person's own files out of its snapshot, its item lists, and 
 
 ### Sound
 
-WavePlayer plays through Kalyn's Kevelle libs. `lib/audio` plays each track through the page's Web Audio graph and keeps a feed of its samples. `lib/scope` draws that feed as a figure on a `lib/phosphor` screen, which renders with WebGPU, or WebGL2 where WebGPU is missing. `components/waveform` puts that screen on the page. `tools/kevelle/vendor.ts` installs these libs from Kalyn's registry and pins them. Don't edit them here. [tools/kevelle/README.md](tools/kevelle/README.md) explains how to update them.
+WavePlayer plays through Kalyn's Kevelle libs. `lib/audio` plays each track through the page's Web Audio graph and keeps a feed of its samples. `lib/scope` draws that feed as a figure on a `lib/screen` screen, which renders with WebGPU, or WebGL2 where WebGPU is missing. `components/waveform` puts that screen on the page. When several players share a page, the one that played last answers the system's media keys. `tools/kevelle/vendor.ts` installs these libs from Kalyn's registry and pins them. Don't edit them here. [tools/kevelle/README.md](tools/kevelle/README.md) explains how to update them.
 
 ## Checks
 

@@ -209,7 +209,10 @@ function seconds(text: string | null): number | null {
 
 const press = (name: string) => ab("find", "role", "button", "click", "--name", name, "--exact")
 
+// The live region reads "Now playing <title>." while a track loads, plays, or is paused.
 const NOW_PLAYING = "Now playing "
+const nowPlaying = (title: string) => `${NOW_PLAYING}${title}.`
+const titleOf = (live: string) => live.slice(NOW_PLAYING.length).replace(/\.$/, "")
 
 // On a first visit the page saves its defaults after the store's 250 ms save
 // delay, which can overwrite a seed written just before it. Write until the
@@ -289,7 +292,7 @@ function changedPercent(baseline: string, diff: string): number {
 
 // Waits for `title` to start from 0 s and play past its first second.
 async function startsOver(title: string): Promise<number> {
-  const on = (s: PlayerState) => s.live === NOW_PLAYING + title
+  const on = (s: PlayerState) => s.live === nowPlaying(title)
   const zero = await until(state, (s) => on(s) && seconds(s.time) === 0, 5_000)
   expect(on(zero) && seconds(zero.time) === 0, `"${title}" never started from 0 s: "${zero.live}", "${zero.time}"`)
   const moving = await until(state, (s) => on(s) && s.play === "true" && (seconds(s.time) ?? 0) >= 1, 10_000)
@@ -311,7 +314,7 @@ function rowPlays(s: PlayerState, index: number, title: string): boolean {
     row.current &&
     row.playing &&
     row.led &&
-    s.live === NOW_PLAYING + title &&
+    s.live === nowPlaying(title) &&
     s.session.state === "playing" &&
     s.session.title === title
   )
@@ -600,13 +603,13 @@ const CHECKS: readonly Check[] = [
       }
       const live = state().live
       expect(live.startsWith(NOW_PLAYING), `live region reads "${live}" while playing`)
-      const first = live.slice(NOW_PLAYING.length)
+      const first = titleOf(live)
       const expected = TITLES[TITLES.indexOf(first) + 1]
       expect(TITLES.includes(first) && expected !== undefined, `"${first}" is not a sample track with a track after it`)
       press("Next track")
       const changed = (await until(state, (s) => s.live !== live, 5_000)).live
       expect(changed.startsWith(NOW_PLAYING) && changed !== live, `the live region reads "${changed}" after Next track`)
-      const second = changed.slice(NOW_PLAYING.length)
+      const second = titleOf(changed)
       expect(second === expected, `Next track went from "${first}" to "${second}", not to "${expected}"`)
       const secondAt = await startsOver(second)
       // Previous restarts a track after its first 3 s, and goes back only before that.
