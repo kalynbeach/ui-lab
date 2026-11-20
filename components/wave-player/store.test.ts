@@ -242,6 +242,18 @@ describe("click to play", () => {
     expect(store.getSnapshot().status).toEqual({ kind: "failed", reason: "unsupported" })
   })
 
+  test("after No Web Audio, Play and the current row do nothing", () => {
+    const { store } = setup({ support: "unsupported" })
+
+    store.send({ type: "toggle" })
+    const failed = store.getSnapshot()
+
+    store.send({ type: "toggle" })
+    store.send({ type: "play" })
+    store.send({ type: "play-track", id: "a" })
+    expect(store.getSnapshot()).toBe(failed)
+  })
+
   test("an empty playlist ignores transport commands and keeps settings", () => {
     const { store, station } = setup({ tracks: [] })
 
@@ -300,6 +312,37 @@ describe("Media Session", () => {
 
     handlers.get("previoustrack")!({ action: "previoustrack" })
     expect(store.getSnapshot().current?.track.id).toBe("a")
+
+    vi.unstubAllGlobals()
+  })
+
+  test("the player that played last answers the media keys, and the other writes nothing", () => {
+    vi.stubGlobal(
+      "MediaMetadata",
+      class {
+        constructor(init: object) {
+          Object.assign(this, init)
+        }
+      }
+    )
+
+    const { session, handlers } = fakeSession()
+    const first = setup({ mediaSession: session }).store
+    const second = setup({ mediaSession: session }).store
+    const title = () => (session.metadata as { title?: string } | null)?.title
+
+    first.send({ type: "play-track", id: "c" })
+    expect(title()).toBe(first.getSnapshot().current?.track.title)
+
+    second.send({ type: "play-track", id: "b" })
+    expect(title()).toBe(second.getSnapshot().current?.track.title)
+
+    first.send({ type: "set-repeat", repeat: "all" })
+    expect(title()).toBe(second.getSnapshot().current?.track.title)
+
+    handlers.get("previoustrack")!({ action: "previoustrack" })
+    expect(second.getSnapshot().current?.track.id).toBe("a")
+    expect(first.getSnapshot().current?.track.id).toBe("c")
 
     vi.unstubAllGlobals()
   })
