@@ -96,7 +96,7 @@ const PLAYER_CEILING = 0.5
 /** A metadata probe that hears nothing for this long counts as failed, so it can't hold up the probes behind it. */
 export const PROBE_TIMEOUT_MS = 10_000
 
-/** How long a settings write waits for more changes. release() writes at once. */
+/** How long a settings write waits for more changes. release() writes at once, and so does the page when it is hidden or goes away. */
 export const SAVE_DELAY_MS = 250
 
 const STRIP_OPTIONS: StripOptions = {
@@ -176,6 +176,8 @@ export type PlayerEnv = {
   readonly frame: (callback: () => void) => () => void
   /** setTimeout. Returns a cancel. */
   readonly setTimer: (callback: () => void, ms: number) => () => void
+  /** Calls back when the page is hidden or about to go away, the last moments it can still write. Returns a cancel. */
+  readonly onPageHide: (callback: () => void) => () => void
   /** Playlist issues, once per distinct list. */
   readonly report: (issues: readonly PlaylistIssue[]) => void
   /** A 32-bit seed for shuffle. Drawn once, at the first command, never during render. */
@@ -204,6 +206,21 @@ export function browserEnv(settingsKey?: string): PlayerEnv {
       const id = setTimeout(callback, ms)
 
       return () => clearTimeout(id)
+    },
+    // pagehide covers a reload, a close, and a navigation. A phone often
+    // sends only visibilitychange before it discards a page in the background.
+    onPageHide(callback) {
+      const hidden = () => {
+        if (document.visibilityState === "hidden") callback()
+      }
+
+      addEventListener("pagehide", callback)
+      document.addEventListener("visibilitychange", hidden)
+
+      return () => {
+        removeEventListener("pagehide", callback)
+        document.removeEventListener("visibilitychange", hidden)
+      }
     },
     report: (issues) =>
       console.warn("WavePlayer dropped track data it could not use.", issues),
@@ -247,6 +264,8 @@ export function createPlayerStore(
   let saved: string | null = null
   /** A write waiting out SAVE_DELAY_MS. It reads the settings when it fires, so later changes ride along. */
   let cancelSave: (() => void) | null = null
+  /** Stops listening for the page going away. Set while a write waits. */
+  let cancelHide: (() => void) | null = null
   /** Open from the first sounding gesture until release(). */
   let audio: OpenAudio | null = null
   let nowPlaying: NowPlaying | null = null
@@ -359,11 +378,15 @@ export function createPlayerStore(
     if (serializeSettings(intent.settings) === saved) return
 
     cancelSave = env.setTimer(flushSave, SAVE_DELAY_MS)
+    // A reload or a close inside the delay would drop the write, so the page going away makes it at once.
+    cancelHide = env.onPageHide(flushSave)
   }
 
   function flushSave(): void {
     cancelSave?.()
     cancelSave = null
+    cancelHide?.()
+    cancelHide = null
 
     if (!restored || !env.settings) return
 

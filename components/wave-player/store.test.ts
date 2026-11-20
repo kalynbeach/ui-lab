@@ -15,7 +15,7 @@ import {
 } from "@/lib/audio/index"
 
 import type { WavePlayerTrack } from "./playlist"
-import { createPlayerStore, SAVE_DELAY_MS, type PlayerEnv } from "./store"
+import { browserEnv, createPlayerStore, SAVE_DELAY_MS, type PlayerEnv } from "./store"
 
 const TRACKS: readonly WavePlayerTrack[] = [
   { id: "a", title: "Low tide", src: "/a.mp3" },
@@ -129,6 +129,11 @@ function setup({
   const strips: FakeStrip[] = []
   const stationListeners = new Set<() => void>()
   const timers = new Set<{ callback: () => void; ms: number }>()
+  const hides = new Set<() => void>()
+  /** The page is hidden or goes away. */
+  const hide = () => {
+    for (const callback of [...hides]) callback()
+  }
   /** Fires every timer that waits `ms`, as if that long had passed. */
   const elapse = (ms: number) => {
     for (const timer of [...timers]) {
@@ -177,6 +182,11 @@ function setup({
 
       return () => timers.delete(timer)
     },
+    onPageHide(callback) {
+      hides.add(callback)
+
+      return () => hides.delete(callback)
+    },
     report: vi.fn(),
     seed: vi.fn(() => 7),
     settings: storage,
@@ -187,7 +197,7 @@ function setup({
     for (const listener of [...stationListeners]) listener()
   }
 
-  return { store, station, strips, log, stationNotify, env, storage, elapse }
+  return { store, station, strips, log, stationNotify, env, storage, elapse, hide, hides }
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -511,6 +521,34 @@ describe("saved settings", () => {
     store.release()
 
     expect(JSON.parse(storage.text!)).toMatchObject({ repeat: "all" })
+  })
+
+  test("the page going away writes a waiting change at once, and the write happens once", () => {
+    const { store, storage, elapse, hide, hides } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+    store.send({ type: "set-repeat", repeat: "all" })
+    expect(storage.write).not.toHaveBeenCalled()
+    expect(hides.size).toBe(1)
+
+    hide()
+    expect(JSON.parse(storage.text!)).toMatchObject({ repeat: "all" })
+    expect(hides.size).toBe(0)
+
+    elapse(SAVE_DELAY_MS)
+    hide()
+    expect(storage.write).toHaveBeenCalledOnce()
+  })
+
+  test("with nothing waiting, the store does not listen for the page going away", () => {
+    const { store, hides, elapse } = setup({ stored: SAVED })
+
+    store.restoreSettings()
+    expect(hides.size).toBe(0)
+
+    store.send({ type: "set-repeat", repeat: "all" })
+    elapse(SAVE_DELAY_MS)
+    expect(hides.size).toBe(0)
   })
 
   test("a level raised before restore stays unmuted over a saved mute", () => {
@@ -983,4 +1021,32 @@ test("a file added after a direct play skipped a track plays after the retrace, 
   }
 
   expect(visited).toEqual(["c", file.id])
+})
+
+describe("browserEnv().onPageHide", () => {
+  const visibility = (state: DocumentVisibilityState) =>
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue(state)
+
+  test("calls back on pagehide and when the page becomes hidden, and never when it becomes visible", () => {
+    const callback = vi.fn()
+    const cancel = browserEnv().onPageHide(callback)
+
+    window.dispatchEvent(new Event("pagehide"))
+    expect(callback).toHaveBeenCalledTimes(1)
+
+    visibility("visible")
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(callback).toHaveBeenCalledTimes(1)
+
+    visibility("hidden")
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(callback).toHaveBeenCalledTimes(2)
+
+    cancel()
+    window.dispatchEvent(new Event("pagehide"))
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(callback).toHaveBeenCalledTimes(2)
+
+    vi.restoreAllMocks()
+  })
 })
