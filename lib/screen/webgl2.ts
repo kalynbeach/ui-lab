@@ -108,7 +108,25 @@ function build(
     return shader
   }
 
+  const deletePrograms = () => {
+    for (const program of programs) gl.deleteProgram(program)
+
+    for (const shader of shaders) gl.deleteShader(shader)
+  }
+
+  // A failed link frees every program and shader built so far, since no
+  // renderer exists yet to destroy them.
   const link = (vertex: string, fragment: string) => {
+    try {
+      return linkProgram(vertex, fragment)
+    } catch (error) {
+      deletePrograms()
+
+      throw error
+    }
+  }
+
+  const linkProgram = (vertex: string, fragment: string) => {
     const program = gl.createProgram()
     programs.push(program)
     gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex))
@@ -244,12 +262,28 @@ function build(
     viewportDims[1]
   )
 
+  const deleteObjects = () => {
+    gl.deleteVertexArray(lineArray)
+    gl.deleteVertexArray(beamArray)
+    gl.deleteBuffer(pointBuffer)
+    gl.deleteBuffer(uniformBuffer)
+    deletePrograms()
+  }
+
   // The canvas may still be larger than this context allows; the screen
   // resizes it to maxSize at the next frame.
-  let history = createHistory(
-    Math.min(canvas.width, maxSize),
-    Math.min(canvas.height, maxSize)
-  )
+  let history: History
+
+  try {
+    history = createHistory(
+      Math.min(canvas.width, maxSize),
+      Math.min(canvas.height, maxSize)
+    )
+  } catch (error) {
+    deleteObjects()
+
+    throw error
+  }
 
   let alive = true
 
@@ -414,14 +448,7 @@ function build(
       // Free this renderer's objects only. The context stays: it belongs to
       // the canvas, and a restored context is acquired again.
       deleteHistory(history)
-      gl.deleteVertexArray(lineArray)
-      gl.deleteVertexArray(beamArray)
-      gl.deleteBuffer(pointBuffer)
-      gl.deleteBuffer(uniformBuffer)
-
-      for (const program of programs) gl.deleteProgram(program)
-
-      for (const shader of shaders) gl.deleteShader(shader)
+      deleteObjects()
     },
   }
 }

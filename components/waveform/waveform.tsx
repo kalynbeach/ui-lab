@@ -3,7 +3,7 @@
 /*
  * kevelle/waveform: the site's one living waveform, in four forms. It draws
  * the Kevelle Oscilloscope's figures with the same parts, kevelle/scope on a
- * kevelle/phosphor screen.
+ * kevelle/screen screen.
  *
  *   import { Waveform, WaveformProvider } from "@/components/waveform/waveform"
  *   import { WaveformPanel } from "@/components/waveform/panel"
@@ -96,6 +96,11 @@
  * Escape returns. The dashboard's panel saves through its own provider.
  * Without onConfigChange the stage only strikes.
  *
+ * Names. The stage is a button named "Waveform. Press to strike it.", or
+ * "Waveform" while held, when it takes no strikes. A page with several
+ * stages passes each a label, such as its tile's title, so each button has
+ * a name of its own.
+ *
  * Keys. WAVEFORM_KEYS in ./keys.ts says what each key does, by its place on
  * the keyboard. A S D F G H J K and W E T Y U are notes, laid out as on
  * Ableton Live's computer keyboard. Each plays Y over X at a just interval.
@@ -177,7 +182,7 @@
  * make ends their play.
  *
  * Presence. The live figure arrives when the first slot claims the canvas,
- * and the glow when it mounts. Arriving turns the beam on, so the phosphor
+ * and the glow when it mounts. Arriving turns the beam on, so the screen
  * builds the figure over its trail, while the canvas fades in over 1.6 s.
  * A stage that first claims the canvas after a mark under the provider has
  * drawn starts at full strength instead, so a view transition from the mark
@@ -279,14 +284,18 @@
  * and the visit does not resume.
  * A browser that holds audio until a gesture reads "suspended" until the
  * next Listen. WaveformInputPicker is its controls: the source, the device,
- * a file, Listen or Play and Stop, and the status, from Kevelle ui/* parts
- * only. It keeps no state, so a page can render it twice. WaveformPanel
+ * a file, Listen or Play and Stop, and the status as a caps badge in the
+ * Oscilloscope's words, from Kevelle ui/* parts only. A status sentence that
+ * says what to do next shows under the badge, and one that only restates it
+ * is for screen readers. It keeps no state, so a page can render it twice. WaveformPanel
  * shows it in its Source section, in place of the source control, when it
  * gets `input`. Its copy is a draft, kept in one place in ./input.tsx.
  *
  * The stage. While present, its box carries a transparent button over the
  * canvas, with an accessible name, aria-keyshortcuts for every key, and no
- * ring, outline, or border. Keyboard focus shows through the figure: its
+ * ring, outline, or border. Forced colors drop the figure's light, so there
+ * the button draws the browser's focus outline. Otherwise keyboard focus
+ * shows through the figure: its
  * bloom lifts over 280 ms, at once when still, and a caption shows at the
  * box's bottom edge, so focus also reads as text. With keys, the caption says
  * they exist, and it also shows after the pointer rests 600 ms on the stage,
@@ -296,6 +305,11 @@
  * aria-describedby with it, for a host that teaches the keys its own way;
  * focus then shows only through the bloom, and ? still opens the key guide
  * where a one-line caption would hold it. An absent stage drops the button.
+ * A held stage, under the provider's `hold` or reduced motion, strikes
+ * nothing, since no form could show it: its name is the label alone, the
+ * key guide leaves out Space, and without keys it drops the button and its
+ * caption, as an absent stage does. useWaveform().strike() and the keys'
+ * touches do nothing while held either.
  * useWaveform().strike() strikes from a page's own control, and
  * WaveformPanel, in ./panel.tsx, edits every setting.
  */
@@ -321,7 +335,7 @@ import {
   type Claim,
   type WaveformEngine,
 } from "./engine"
-import type { WaveformHold } from "./figure"
+import { modeOf, type WaveformHold } from "./figure"
 import {
   COPY,
   GUIDE_KEY,
@@ -352,6 +366,7 @@ type WaveformContextValue = {
   readonly config: WaveformConfig
   readonly onConfigChange: ((config: WaveformConfig) => void) | null
   readonly keys: StageKeys | null
+  readonly hold: WaveformHold | null
 }
 
 const WaveformContext = React.createContext<WaveformContextValue | null>(null)
@@ -435,8 +450,9 @@ export function WaveformProvider({
       config,
       onConfigChange: onConfigChange ?? null,
       keys: onConfigChange ? { player, pageKeys, setPageKeys } : null,
+      hold,
     }),
-    [engine, config, onConfigChange, player, pageKeys]
+    [engine, config, onConfigChange, player, pageKeys, hold]
   )
 
   return <WaveformContext value={value}>{children}</WaveformContext>
@@ -501,11 +517,18 @@ export type WaveformProps = Placement &
          * caption and drops the button's aria-describedby.
          */
         readonly hint?: boolean
+        /**
+         * Default "Waveform": the stage button's name, before "Press to
+         * strike it.". A page with several stages names each one, such as by
+         * its tile's title.
+         */
+        readonly label?: string
       }
     | {
         readonly form: Exclude<Form, "stage">
         readonly keys?: never
         readonly hint?: never
+        readonly label?: never
       }
   )
 
@@ -567,13 +590,16 @@ function Slot({
   present = true,
   keys = "focus",
   hint = true,
+  label = "Waveform",
   className,
 }: WaveformProps) {
-  const { engine } = useWaveformContext("Waveform")
+  const { engine, keys: played, hold } = useWaveformContext("Waveform")
   const box = React.useRef<HTMLDivElement>(null)
   const claim = React.useRef<Claim | null>(null)
   const [focused, setFocused] = React.useState(false)
-  const staged = form === "stage" && present
+  const held = modeOf(hold, useReducedMotion()) !== "live"
+  // A held stage takes no strikes, so without keys it has no button at all.
+  const staged = form === "stage" && present && (played !== null || !held)
   const lit = staged && focused
   const state = { form, anchor, present, lit }
   const initial = React.useEffectEvent(() => state)
@@ -600,13 +626,36 @@ function Slot({
   return (
     <div ref={box} className={cn("relative", className)}>
       {staged ? (
-        <Stage scope={keys} captioned={hint} onLit={setFocused} />
+        <Stage
+          scope={keys}
+          captioned={hint}
+          label={label}
+          held={held}
+          onLit={setFocused}
+        />
       ) : null}
     </div>
   )
 }
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)"
+
+const subscribeReducedMotion = (listener: () => void) => {
+  const list = matchMedia(REDUCED_MOTION)
+
+  list.addEventListener("change", listener)
+
+  return () => list.removeEventListener("change", listener)
+}
+
+/** Whether the visitor asks for reduced motion. False on the server and until hydration settles it. */
+function useReducedMotion(): boolean {
+  return React.useSyncExternalStore(
+    subscribeReducedMotion,
+    () => matchMedia(REDUCED_MOTION).matches,
+    () => false
+  )
+}
 
 /**
  * An open modal dialog takes every key. ARIA dialogs and native ones say so
@@ -684,14 +733,22 @@ const AT_REST: Hint = { dwell: false, focus: false, stray: false }
 
 type Timer = ReturnType<typeof setTimeout>
 
-/** The stage's strike button, its hint unless the host turns it off, and with keys, its key guide. */
+/**
+ * The stage's strike button, its hint unless the host turns it off, and with
+ * keys, its key guide. A held stage only plays keys: its button strikes
+ * nothing, and its name and the guide say nothing of strikes.
+ */
 function Stage({
   scope,
   captioned,
+  label,
+  held,
   onLit,
 }: {
   readonly scope: StageKeysScope
   readonly captioned: boolean
+  readonly label: string
+  readonly held: boolean
   readonly onLit: (lit: boolean) => void
 }) {
   const { engine, keys } = useWaveformContext("Waveform")
@@ -829,10 +886,10 @@ function Stage({
       <button
         ref={button}
         type="button"
-        aria-label={COPY.stage}
+        aria-label={held ? label : COPY.stage(label)}
         aria-keyshortcuts={keys ? shortcutsOf(WAVEFORM_KEYS) : undefined}
         aria-describedby={captioned ? hintId : undefined}
-        onClick={engine.strike}
+        onClick={held ? undefined : engine.strike}
         onKeyDown={(event) => {
           // Space and Enter strike through the button's own click.
           if (event.key === " " || event.key === "Enter") return
@@ -863,7 +920,7 @@ function Stage({
           dwell.current = null
           setHint((last) => (last.dwell ? { ...last, dwell: false } : last))
         }}
-        className="absolute inset-0 size-full outline-none"
+        className="absolute inset-0 size-full focus-visible:outline-hidden"
       />
       {keys ? (
         <Popover open={guide} onOpenChange={setGuide}>
@@ -883,17 +940,19 @@ function Stage({
               {scope === "page" ? COPY.pageWide : COPY.focusOnly} {COPY.faster}
             </PopoverDescription>
             <dl className="flex flex-col gap-2">
-              {guideOf(WAVEFORM_KEYS).map((row) => (
-                <div
-                  key={row.label}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <dt className="type-caption">{row.does}</dt>
-                  <dd>
-                    <Kbd face="label">{row.label}</Kbd>
-                  </dd>
-                </div>
-              ))}
+              {guideOf(WAVEFORM_KEYS)
+                .filter((row) => !held || row.does !== COPY.strike.does)
+                .map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <dt className="type-caption">{row.does}</dt>
+                    <dd>
+                      <Kbd face="label">{row.label}</Kbd>
+                    </dd>
+                  </div>
+                ))}
             </dl>
             {scope === "page" ? (
               <Field>

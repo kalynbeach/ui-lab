@@ -1,5 +1,5 @@
 /*
- * The phosphor screen: one canvas, its frame loop, and everything that keeps
+ * The screen: one canvas, its frame loop, and everything that keeps
  * it alive. A caller gives it a look and a producer and reads its status. The
  * screen hides backend choice, the canvas's ground and HDR configuration,
  * resize, visibility, and device-loss recovery behind those.
@@ -8,7 +8,7 @@
  * viewport, the document is visible, and the canvas has a size. Otherwise the
  * status is paused with the reason and no frame is scheduled. On resume, dt
  * covers the pause, and the frame-rate-independent fade removes what a real
- * phosphor would have lost in that time.
+ * screen would have lost in that time.
  *
  * Resize. A ResizeObserver on the device-pixel content box gives exact device
  * pixels. Where that box throws (Safari), the content box times
@@ -35,8 +35,8 @@ import type { AcquireRenderer, Renderer, RendererLoss } from "./renderer"
 import type {
   Backend,
   PauseReason,
-  PhosphorLook,
-  PhosphorScreen,
+  ScreenLook,
+  Screen,
   Producer,
   ScreenError,
   ScreenStatus,
@@ -92,14 +92,14 @@ const sameTraces = (a: readonly TraceColor[], b: readonly TraceColor[]) =>
  * The screen returns "starting" and changes status only after it returns,
  * so a caller that subscribes right away sees every change.
  */
-export function createPhosphorScreen(
+export function createScreen(
   canvas: HTMLCanvasElement,
   init: {
-    readonly look: PhosphorLook
+    readonly look: ScreenLook
     readonly produce: Producer
     readonly backend?: Backend | "auto"
   }
-): PhosphorScreen {
+): Screen {
   let look = clampLook(init.look)
   let produce = init.produce
   let phase: Phase = { kind: "starting" }
@@ -242,7 +242,7 @@ export function createPhosphorScreen(
 
       needsComposite = false
     } catch (error) {
-      console.error("[kevelle/phosphor]", error)
+      console.error("[kevelle/screen]", error)
       fail({
         kind: "init-failed",
         message: error instanceof Error ? error.message : String(error),
@@ -462,7 +462,7 @@ export function createPhosphorScreen(
     },
     snapshot() {
       if (phase.kind !== "ready")
-        return Promise.reject(new Error("The phosphor screen is not running."))
+        return Promise.reject(new Error("The screen is not running."))
       phase.renderer.composite(pack(0, DEFAULT_POINT_DURATION))
 
       // toBlob reads the drawing buffer now, in the task that composited it.

@@ -859,9 +859,8 @@ export function createStrip(
 
     if (closed) return err({ kind: "station-not-running" })
 
-    if (!to) return fail(spec.kind, { kind: "station-not-running" })
-
     if (
+      to &&
       spec.kind === "input" &&
       current?.kind === "input" &&
       !current.ended &&
@@ -872,10 +871,14 @@ export function createStrip(
       return ok(current.capture.handle)
     }
 
+    // The latest play wins even when it can't start, so the source it
+    // replaces never outlives it and comes back on the next context.
     if (current) {
       retire(current)
       current = null
     }
+
+    if (!to) return fail(spec.kind, { kind: "station-not-running" })
 
     const opening = spec.kind === "tones" ? (spec.program ?? null) : null
 

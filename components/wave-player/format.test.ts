@@ -21,9 +21,9 @@ test.each([
 })
 
 test("the remaining time adds up with the whole seconds shown", () => {
-  expect(formatRemaining(84, 272)).toBe("-03:08")
-  expect(formatRemaining(84.7, 272.2)).toBe("-03:08")
-  expect(formatRemaining(300, 272)).toBe("-00:00")
+  expect(formatRemaining(84, 272)).toBe("−03:08")
+  expect(formatRemaining(84.7, 272.2)).toBe("−03:08")
+  expect(formatRemaining(300, 272)).toBe("−00:00")
   expect(formatRemaining(84, null)).toBe(UNKNOWN_TIME)
 })
 

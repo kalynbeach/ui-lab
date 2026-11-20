@@ -12,14 +12,14 @@
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/format.ts",
       "target": "components/wave-player/format.ts",
-      "sha256": "df1dd1c7a4c62a17f4c5ee8b591d2f92f3e67e7220289b131a196595e31677bf",
+      "sha256": "ce7b893500016c1619a6c75dceee4ec2233bc656e474b0d42bc05ac051030009",
       "seed": true
     },
     {
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/keys.ts",
       "target": "components/wave-player/keys.ts",
-      "sha256": "bc4c452565f626d5c777bf8755f8cf4678045f43fe2e3f6907544679ddb2c9c8",
+      "sha256": "1ef482122e65c088d41da5908a2cc8e9951dab4ee7290790a903b33f06e5cece",
       "seed": true
     },
     {
@@ -40,21 +40,21 @@
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/model.ts",
       "target": "components/wave-player/model.ts",
-      "sha256": "eeb686b8545418b83dba033a66ce4bcd693cd05e069bf38f53ac63179d7c26d5",
+      "sha256": "e753be138143a5f54114ad5fbb844ccf829c676e83549730dec1f579f607eb06",
       "seed": true
     },
     {
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/morph.ts",
       "target": "components/wave-player/morph.ts",
-      "sha256": "e7b74422eadfb84acddbdae40047c6f9f2d93efaf9027ca2a4e395065673b047",
+      "sha256": "7f846d07e80707b5e8bf65c48c90d023acdcd90b498d6288442d90be8cc6e231",
       "seed": true
     },
     {
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/now-playing.ts",
       "target": "components/wave-player/now-playing.ts",
-      "sha256": "989bfbb106991ce477216759f78e0f49141e281ed8864aab16e98637aaf83dc7",
+      "sha256": "c849d0939b77e79f5a9d2c53dc64741e5b35bf6b6a19731f25c1929b526648b6",
       "seed": true
     },
     {
@@ -82,49 +82,49 @@
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/status-view.ts",
       "target": "components/wave-player/status-view.ts",
-      "sha256": "c7b3160561a874553418d760c99881b476926fc183a62e40f81e3070aaa4bc3e",
+      "sha256": "175d13c2281ee381d07ddf52ee621a44605f678cada10ff032d8b9a7fefc5ab9",
       "seed": true
     },
     {
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/store.ts",
       "target": "components/wave-player/store.ts",
-      "sha256": "72163aaecc994c49415a8523675f2a0966ac9056167e0577c0e7f0ef973760cd",
+      "sha256": "1224f057ee3ba92af426123ddeaf3603157e3630b7ca6b7c5d559760fe7b6c92",
       "seed": true
     },
     {
       "item": "waveform",
       "source": "registry/kevelle/blocks/waveform/engine.ts",
       "target": "components/waveform/engine.ts",
-      "sha256": "352612645cb5a4be567464dc78f780b60c3c28b330287aa86f9e0b5ae053a99d",
+      "sha256": "589d9b34cc1600ca4e783c7b83c59d43654de553e47c36db0e3174f2e81e994e",
       "seed": false
     },
     {
       "item": "waveform",
       "source": "registry/kevelle/blocks/waveform/figure.ts",
       "target": "components/waveform/figure.ts",
-      "sha256": "1d8a824ef0dba3219c15cd61a504e170f5be82b7713d5edc6545072b2f7bd538",
+      "sha256": "0adbe8ccfcdbda711372c186333e440793ef6dae278c06841248f32478dd4e26",
       "seed": false
     },
     {
       "item": "waveform",
       "source": "registry/kevelle/blocks/waveform/keys.ts",
       "target": "components/waveform/keys.ts",
-      "sha256": "2c1aff416606bf096d48981a7e8d62e7441c7c9893b05ff223e02f7d28c1a177",
+      "sha256": "be59285789369c87f226ace96da32fb8e3368a2e37668f95fd536215d503ef79",
       "seed": false
     },
     {
       "item": "waveform",
       "source": "registry/kevelle/blocks/waveform/settings.ts",
       "target": "components/waveform/settings.ts",
-      "sha256": "42334dbd3e104a3ac943b2a82e32cfbcdd8d9cc54195bc84cc707f0e95de8c01",
+      "sha256": "e49bb358654613e85015c3866e3c19e8a2218ec66301373e83304cc85d635497",
       "seed": false
     },
     {
       "item": "waveform",
       "source": "registry/kevelle/blocks/waveform/waveform.tsx",
       "target": "components/waveform/waveform.tsx",
-      "sha256": "f134cc2161ffdf9af939027787c2032f90085829616876fb0876a0ea75e030a8",
+      "sha256": "50fb5c20834350a35bf19eb509ec34c7e448e56a8b914b41ce9e1c6d8ab7253e",
       "seed": false
     },
     {
@@ -138,21 +138,28 @@
       "item": "audio",
       "source": "registry/kevelle/lib/audio/file.ts",
       "target": "lib/audio/file.ts",
-      "sha256": "86ec41d424da7a1a14c9d8d7f351259f1f71f626e91d4fc8e85922ce29e37149",
+      "sha256": "5e2ff7b63c6d7a70e89d049e0c245a7815ba9e73e681446c5357a0512d0d940d",
       "seed": false
     },
     {
       "item": "audio",
       "source": "registry/kevelle/lib/audio/index.ts",
       "target": "lib/audio/index.ts",
-      "sha256": "410938a4f541257715350db843bd4c860955c2b8770b5d04a3e688362b6021cc",
+      "sha256": "17bb4ee8354292ea723a33a3494e8465868ed404ec3144b6398f1f947b757dec",
       "seed": false
     },
     {
       "item": "audio",
       "source": "registry/kevelle/lib/audio/input.ts",
       "target": "lib/audio/input.ts",
-      "sha256": "94587248376c669c52e24faf8a568d92919605ead4d0711cb9d8a7eeb565ac42",
+      "sha256": "4d42f638e22c11288e55c450d20adf041fc3883eaf039f6b8845c0d244deb9c7",
+      "seed": false
+    },
+    {
+      "item": "audio",
+      "source": "registry/kevelle/lib/audio/media-session.ts",
+      "target": "lib/audio/media-session.ts",
+      "sha256": "0fc64401234bd457a5348583df4e468b7ef749d88754f8bfa4238afeed4dd604",
       "seed": false
     },
     {
@@ -187,7 +194,7 @@
       "item": "audio",
       "source": "registry/kevelle/lib/audio/strip.ts",
       "target": "lib/audio/strip.ts",
-      "sha256": "4d1d0be6e802ccaea0fde0e0b70295e5c4daed5472c4141c4dcd887bbcc39436",
+      "sha256": "6f8c6f670aa338391a93203e269a542784780473759eb32b9708c9eaecccdb39",
       "seed": false
     },
     {
@@ -201,7 +208,7 @@
       "item": "audio",
       "source": "registry/kevelle/lib/audio/units.ts",
       "target": "lib/audio/units.ts",
-      "sha256": "4449c8891bf8e3688f6105d5029bb28d6f592a3777c6a4cce07e51f9957b7dcc",
+      "sha256": "2ef174d4dfb213a5d52a9e38579a4e255a5966fb562cd4d64263b0baaab74097",
       "seed": false
     },
     {
@@ -219,129 +226,31 @@
       "seed": false
     },
     {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/colors.ts",
-      "target": "lib/phosphor/colors.ts",
-      "sha256": "9449d26c3b66a0802cb4cf7133af163ace5ec52df56338009284c82bb81df14c",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/exposure.ts",
-      "target": "lib/phosphor/exposure.ts",
-      "sha256": "8fa5f160b2c1b6c72282c380ab870ab98e26a21ea5a1f5332aab1d6168c8d0bd",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/frame-buffer.ts",
-      "target": "lib/phosphor/frame-buffer.ts",
-      "sha256": "eca0ff413c71aaf697fec7dbc55c1f9bc22a0eb7a1ba8e608b38e3d470543a1f",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/glsl.ts",
-      "target": "lib/phosphor/glsl.ts",
-      "sha256": "81478e96011942a83f4b3048bb2e56810f428fe45692e8aa37855b0b9e21dda2",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/index.ts",
-      "target": "lib/phosphor/index.ts",
-      "sha256": "c5e550d779cc5e5b407e60406eda096f7fb78510a349846cddc8017bf5fbff54",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/presets.ts",
-      "target": "lib/phosphor/presets.ts",
-      "sha256": "adfa17e83cef3e4a2df616e640adc23d469679cda8b7dee9cfb35a382aa363da",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/recovery.ts",
-      "target": "lib/phosphor/recovery.ts",
-      "sha256": "fe84db08cd1bb9b78007c599c7b79b9847c00d21f00526c7323715c3a20a0640",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/renderer.ts",
-      "target": "lib/phosphor/renderer.ts",
-      "sha256": "1f95cb77ce5867729786bbe2a63315967af3f0ee5680840ddf480bb1bd943d1a",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/screen.ts",
-      "target": "lib/phosphor/screen.ts",
-      "sha256": "f796b86681f7e5e7743fbff6d730990028cb87fd8e2e1ef47eb404219ee4a24c",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/support.ts",
-      "target": "lib/phosphor/support.ts",
-      "sha256": "25bac1dae21cd921385d474d5bf954a8d05232b8c17b0cfc9f3b6bccad566053",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/types.ts",
-      "target": "lib/phosphor/types.ts",
-      "sha256": "af816d42ecc19312b341eeff889233e3e8ba81d50a32aeeaaabf3f5682fe3148",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/webgl2.ts",
-      "target": "lib/phosphor/webgl2.ts",
-      "sha256": "93ebd3de7d22e05c2fbb0f97e90e8c12a007036f89028459f62a4917e7f092ee",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/webgpu.ts",
-      "target": "lib/phosphor/webgpu.ts",
-      "sha256": "d90917c0b2224987da16ed68120ee55b17435dd971cfe27b80fbad05cbfc737e",
-      "seed": false
-    },
-    {
-      "item": "phosphor",
-      "source": "registry/kevelle/lib/phosphor/wgsl.ts",
-      "target": "lib/phosphor/wgsl.ts",
-      "sha256": "1fe72f16910faab288a66cc3d17fd6d1a9d2d5a6c32f463cc14200ed91156191",
-      "seed": false
-    },
-    {
       "item": "scope",
       "source": "registry/kevelle/lib/scope/display.ts",
       "target": "lib/scope/display.ts",
-      "sha256": "bf4cc1cd381831da8f859d31451af7b5c30863552b757fec7473fb9b9e96626b",
+      "sha256": "71c09f02ddce8140b6f533e8b07c88f40be1b3ec4b614b635ed27284117a3d59",
       "seed": false
     },
     {
       "item": "scope",
       "source": "registry/kevelle/lib/scope/index.ts",
       "target": "lib/scope/index.ts",
-      "sha256": "e0d0bb230d7baf014767a7d1344b7981fd21f9bd76b9097e0c4073aa5daed697",
+      "sha256": "fe7ccede4aba2bc958866fd8e1b47eafb2018710071e89eeabd6b24cc07da5fa",
       "seed": false
     },
     {
       "item": "scope",
       "source": "registry/kevelle/lib/scope/measure.ts",
       "target": "lib/scope/measure.ts",
-      "sha256": "8b018d23db53f932be4f2ae7a6392b855efea2da75900a00fc381a4d10c3c410",
+      "sha256": "3895a46da3baac8f36da0bbc2247124b01337b9f1615b52b28c5b7573af5c75a",
       "seed": false
     },
     {
       "item": "scope",
       "source": "registry/kevelle/lib/scope/producer.ts",
       "target": "lib/scope/producer.ts",
-      "sha256": "ef08010fb460c7515e41cc78dbebb39ef2ea909ce6e46644fa02342f3364959e",
+      "sha256": "e0c04d8a4475eae860fabb4950034d9a4bd968787f5e2ab69c66d69121590be4",
       "seed": false
     },
     {
@@ -349,6 +258,104 @@
       "source": "registry/kevelle/lib/scope/settings.ts",
       "target": "lib/scope/settings.ts",
       "sha256": "7ebec3cb6953a431cdb30414dfb9446eaacd9f7406cb2942ed08ee358c847d2a",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/colors.ts",
+      "target": "lib/screen/colors.ts",
+      "sha256": "bc46c2b448da4a4772dd3d999bf2c0ec300f104312ba7ded41077b41945359fb",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/exposure.ts",
+      "target": "lib/screen/exposure.ts",
+      "sha256": "8b49de8b1c60c0c881c67f685eec8e0f782dc29de47cd93ad74c824f8faeb061",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/frame-buffer.ts",
+      "target": "lib/screen/frame-buffer.ts",
+      "sha256": "eca0ff413c71aaf697fec7dbc55c1f9bc22a0eb7a1ba8e608b38e3d470543a1f",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/glsl.ts",
+      "target": "lib/screen/glsl.ts",
+      "sha256": "81478e96011942a83f4b3048bb2e56810f428fe45692e8aa37855b0b9e21dda2",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/index.ts",
+      "target": "lib/screen/index.ts",
+      "sha256": "64f3617fcc745e3d2bbfc8b873176e0f8741707f953fca2f1f33e27cd38c0949",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/presets.ts",
+      "target": "lib/screen/presets.ts",
+      "sha256": "c3c6134261b06004f45dee9185f39c9c4aa510b2d97154f47fb62e59cef166d4",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/recovery.ts",
+      "target": "lib/screen/recovery.ts",
+      "sha256": "fe84db08cd1bb9b78007c599c7b79b9847c00d21f00526c7323715c3a20a0640",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/renderer.ts",
+      "target": "lib/screen/renderer.ts",
+      "sha256": "1f95cb77ce5867729786bbe2a63315967af3f0ee5680840ddf480bb1bd943d1a",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/screen.ts",
+      "target": "lib/screen/screen.ts",
+      "sha256": "51b112b4de734cf6247984a8460c4a9b01a076e592f0b6894f21510814cde42d",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/support.ts",
+      "target": "lib/screen/support.ts",
+      "sha256": "5c4a65cffee9d7f9fb36dc37e2ec7d619172cfd95322e1ea8c383242b99d493b",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/types.ts",
+      "target": "lib/screen/types.ts",
+      "sha256": "c9c1e26e6bc547638cd04588c490f85836e6df48b997deb852a9ff857d7bb2b6",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/webgl2.ts",
+      "target": "lib/screen/webgl2.ts",
+      "sha256": "4f9f496861ac26bc05db722dd97428d51ecc2e000d44a30dc93ccc1e79175bb5",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/webgpu.ts",
+      "target": "lib/screen/webgpu.ts",
+      "sha256": "2d06e3ce6eea46f4c493d7c0bbf27319b2600c22d21cf097821ea6e58ec84bb0",
+      "seed": false
+    },
+    {
+      "item": "screen",
+      "source": "registry/kevelle/lib/screen/wgsl.ts",
+      "target": "lib/screen/wgsl.ts",
+      "sha256": "4c40fed34f2237d132d88e482b96bb71693e4b7496def1523dded321bb945a0b",
       "seed": false
     }
   ]

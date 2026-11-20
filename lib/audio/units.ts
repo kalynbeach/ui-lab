@@ -85,3 +85,39 @@ export function clampNumber(
 
   return Math.min(range.max, Math.max(range.min, value))
 }
+
+/**
+ * How many decimals a control's step has: 0 for 1 Hz, 1 for 0.1 Hz, 2 for
+ * 0.05. Reads the step's shortest text, so 0.1 counts one decimal and 1e-7
+ * counts seven. Throws RangeError for a step that is not positive and finite.
+ */
+export function stepDecimals(step: number): number {
+  if (!Number.isFinite(step) || step <= 0)
+    throw new RangeError(`not a step: ${step}`)
+
+  const [mantissa, exponent = "0"] = String(step).split("e")
+  const fraction = mantissa.split(".")[1]?.length ?? 0
+
+  return Math.max(0, fraction - Number(exponent))
+}
+
+/**
+ * A set value as every Kevelle block prints it: with exactly as many decimals
+ * as its control's step, so a 0.1 Hz step prints 140.0 and a 1 Hz step prints
+ * 400, whatever the value. Measured readings keep their own precision. A
+ * negative value takes a true minus (U+2212), and a value that rounds to zero
+ * prints without one. `signed` adds "+" to the rest, for offsets such as
+ * detune. Callers add the unit.
+ */
+export function formatAtStep(
+  value: number,
+  step: number,
+  options?: { readonly signed?: boolean }
+): string {
+  const digits = Math.abs(value).toFixed(stepDecimals(step))
+  const negative = value < 0 && Number(digits) !== 0
+
+  if (negative) return `−${digits}`
+
+  return options?.signed ? `+${digits}` : digits
+}

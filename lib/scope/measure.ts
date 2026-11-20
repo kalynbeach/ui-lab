@@ -334,12 +334,14 @@ export function autoGain(peak: number): number {
 }
 
 /**
- * Machine-voice values, keeping their units' case:
+ * Readout values, keeping their units' case:
  *   hz           "220.0 Hz", "1.20 kHz", "—" for null
- *   db           "-6.1 dBFS", "-∞ dBFS" below -120
+ *   db           "−6.1 dBFS", "−∞ dBFS" below -120
  *   vpp          "1.98 FS", peak to peak in full-scale units; the scope
  *                knows no volts, so it claims none
- *   correlation  "+0.98", "-0.40", "—" for null
+ *   correlation  "+0.98", "−0.40", "—" for null
+ * Negatives take a true minus sign, U+2212, and a value that rounds to
+ * zero prints unsigned, so a reading never flickers to "−0.00".
  */
 export function formatReading(
   kind: "hz" | "db" | "vpp" | "correlation",
@@ -353,10 +355,17 @@ export function formatReading(
         ? `${value.toFixed(1)} Hz`
         : `${(value / 1000).toFixed(2)} kHz`
     case "db":
-      return value < -120 ? "-∞ dBFS" : `${value.toFixed(1)} dBFS`
+      return value < -120 ? "−∞ dBFS" : `${signed(value, 1, "")} dBFS`
     case "vpp":
       return `${value.toFixed(2)} FS`
     case "correlation":
-      return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`
+      return signed(value, 2, "+")
   }
+}
+
+/** `value` to `digits` places with a U+2212 minus, or `plus` when it is positive or rounds to zero. */
+function signed(value: number, digits: number, plus: string): string {
+  const magnitude = Math.abs(value).toFixed(digits)
+
+  return `${value < 0 && Number(magnitude) !== 0 ? "−" : plus}${magnitude}`
 }

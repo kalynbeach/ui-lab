@@ -1,8 +1,8 @@
-import type { PhosphorSupport } from "./types"
+import type { ScreenSupport } from "./types"
 
-let detected: Promise<PhosphorSupport> | null = null
+let detected: Promise<ScreenSupport> | null = null
 
-async function probe(): Promise<PhosphorSupport> {
+async function probe(): Promise<ScreenSupport> {
   // requestAdapter does not consume the adapter; only requestDevice does.
   const adapter = await navigator.gpu?.requestAdapter().catch(() => null)
 
@@ -20,7 +20,7 @@ async function probe(): Promise<PhosphorSupport> {
  * "webgpu" with a WebGPU adapter, else "webgl2" with EXT_color_buffer_float,
  * else "unsupported". Cached for the page.
  */
-export function detectPhosphorSupport(): Promise<PhosphorSupport> {
+export function detectScreenSupport(): Promise<ScreenSupport> {
   if (typeof window === "undefined") return Promise.resolve("unknown")
   detected ??= probe()
 

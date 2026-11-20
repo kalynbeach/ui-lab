@@ -77,7 +77,7 @@ export function resolveTraces(
       if (!warned.has(color)) {
         warned.add(color)
         console.warn(
-          `[kevelle/phosphor] --${color} is not a color on the canvas; the trace uses the screen's color.`
+          `[kevelle/screen] --${color} is not a color on the canvas; the trace uses the screen's color.`
         )
       }
 

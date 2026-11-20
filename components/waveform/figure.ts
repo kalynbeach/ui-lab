@@ -2,7 +2,7 @@
  * The waveform's per-frame model, pure and DOM-free: the figure a form
  * draws, what the tones play at a moment, the audio envelope, where a form
  * frames the figure and how each copy is posed, a form's presence and
- * stillness, and the phosphor look a form draws with. The engine runs it
+ * stillness, and the screen look a form draws with. The engine runs it
  * every animation frame.
  */
 
@@ -12,9 +12,9 @@ import {
   MAX_POINTS,
   MAX_STRIPS,
   type FrameWriter,
-  type PhosphorLook,
+  type ScreenLook,
   type TraceIndex,
-} from "@/lib/phosphor/index"
+} from "@/lib/screen/index"
 
 import {
   yHzOf,
@@ -756,7 +756,7 @@ const MARK_FOCUS = 0.5
  * Intensity at most 1, divided by the square root of the copies, since
  * their light adds where they cross. A narrower gaussian spot.
  */
-function markLight(look: PhosphorLook, copies: number): PhosphorLook {
+function markLight(look: ScreenLook, copies: number): ScreenLook {
   return {
     ...look,
     persistence: Math.max(
@@ -788,7 +788,7 @@ const RESOLUTION = {
 const SCREEN_REFERENCE = 616
 
 /**
- * The phosphor look one form draws with, from the figure it draws: the
+ * The screen look one form draws with, from the figure it draws: the
  * config's look, with a short trail and no bloom for a figure of its own,
  * and markLight() on the mark. The canvas is transparent over either
  * theme. "auto" color is astral
@@ -807,7 +807,7 @@ export function lookFor(
   config: WaveformConfig,
   form: Form,
   theme: Theme
-): PhosphorLook {
+): ScreenLook {
   const drawn = figureFor(config, form)
   const { look } = drawn
   const ground: Theme = form === "screen" ? "dark" : theme
@@ -821,7 +821,7 @@ export function lookFor(
 
   const copies = copiesOf(drawn)
 
-  const light: PhosphorLook = {
+  const light: ScreenLook = {
     screen: look.screen,
     beam: look.beam,
     persistence: Math.max(look.persistence, shortestTrail(copies)),

@@ -34,7 +34,7 @@ export type ItemSpec = {
 
 export const ITEMS: readonly ItemSpec[] = [
   { item: "audio", dir: "lib/audio" },
-  { item: "phosphor", dir: "lib/phosphor" },
+  { item: "screen", dir: "lib/screen" },
   { item: "scope", dir: "lib/scope" },
   {
     item: "waveform",
@@ -153,6 +153,28 @@ export function auditManifest(
   return problems
 }
 
+/**
+ * The files an install deletes: a pinned file the registry stopped serving,
+ * which would stay importable and unchecked, and every pinned file of an item
+ * that left ITEMS, such as one the registry renamed. A seed file belongs to
+ * this repo, so it always stays. Only its manifest row goes with its item.
+ */
+export function obsoleteFiles(
+  previous: readonly ManifestFile[],
+  written: ReadonlySet<string>,
+  refreshed: ReadonlySet<string>,
+  specs: readonly ItemSpec[] = ITEMS
+): string[] {
+  const known = new Set(specs.map((spec) => spec.item))
+
+  return previous
+    .filter(
+      (file) =>
+        !file.seed && !written.has(file.target) && (refreshed.has(file.item) || !known.has(file.item))
+    )
+    .map((file) => file.target)
+}
+
 async function fetchItem(item: string): Promise<RegistryItem> {
   const response = await fetch(`${REGISTRY}/${item}.json`)
   if (!response.ok) throw new Error(`${item}: registry answered ${response.status}`)
@@ -204,13 +226,15 @@ async function install(withSeeds: boolean): Promise<void> {
     await Bun.write(join(ROOT, entry.target), content)
   }
 
-  // A pinned file the registry stopped serving would stay importable and unchecked, so it goes.
   const written = new Set(writes.map(({ entry }) => entry.target))
   const refreshed = new Set(writes.map(({ entry }) => entry.item))
-  for (const file of previous?.files ?? []) {
-    if (file.seed || !refreshed.has(file.item) || written.has(file.target)) continue
-    await unlink(join(ROOT, file.target)).catch(() => {})
-    console.log(`removed ${file.target}, no longer in the registry`)
+  for (const target of obsoleteFiles(previous?.files ?? [], written, refreshed)) {
+    // A file that is already gone is fine. Any other failure stops the install
+    // here, before the new manifest forgets a file that is still on disk.
+    await unlink(join(ROOT, target)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error
+    })
+    console.log(`removed ${target}, no longer in the registry`)
   }
 
   const manifest: Manifest = { registry: REGISTRY, files: [...writes.map(({ entry }) => entry), ...kept] }

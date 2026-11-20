@@ -237,8 +237,14 @@ export function createDeviceList(
     publish()
   }
 
+  // Refreshes overlap through subscribe, devicechange, and captures. Only the
+  // newest one publishes, so an older list never replaces a newer one.
+  let refreshes = 0
+
   async function refresh(): Promise<void> {
     if (mediaDevices === null) return
+
+    const request = ++refreshes
 
     let infos: MediaDeviceInfo[]
 
@@ -247,6 +253,8 @@ export function createDeviceList(
     } catch {
       return
     }
+
+    if (request !== refreshes) return
 
     const next: ListedInput[] = []
 

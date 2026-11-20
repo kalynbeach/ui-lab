@@ -1,7 +1,7 @@
-export { createPhosphorScreen } from "./screen"
+export { createScreen } from "./screen"
 
 /*
- * kevelle/phosphor: a phosphor screen for line geometry, with the KKB
+ * kevelle/screen: an oscilloscope screen for line geometry, with the KKB
  * Oscilloscope's persistence, bloom, and tone curve. It runs on WebGPU, or
  * on WebGL2 where WebGPU is missing. Kevelle's DESIGN.md describes the looks,
  * presets, beams, and trace colors.
@@ -9,14 +9,14 @@ export { createPhosphorScreen } from "./screen"
  * Import from this file only. Shaders, renderers, and the uniform layout are
  * internal. Framework-free: no React, no audio. Any producer can drive it.
  *
- * Usage. createPhosphorScreen(canvas, { look, produce, backend }) starts a
+ * Usage. createScreen(canvas, { look, produce, backend }) starts a
  * screen and returns its handle: getStatus() and subscribe() for the status,
  * setLook(), setProducer(), clear(), snapshot() for a PNG of the composite,
  * and destroy(). The screen calls produce(frame, out) once per frame. The
  * producer writes clip-space points into strips with out.strip(trace) and
  * out.point(x, y), sets the beam time between points with
  * out.pointDuration(seconds), and returns "draw", or "hold" to keep the
- * screen as it is. detectPhosphorSupport() reports which backend a screen
+ * screen as it is. detectScreenSupport() reports which backend a screen
  * would use, and clampLook() clamps every number in a look into LOOK_LIMITS.
  *
  * Trace colors resolve from CSS custom properties on the canvas when the
@@ -27,7 +27,7 @@ export { createPhosphorScreen } from "./screen"
  * up the new theme's tokens.
  *
  * Grounds. look.ground says what the canvas sits on. "screen", the default,
- * is the phosphor's own opaque screen, lifted by look.background. It is the
+ * is an opaque screen of its own, lifted by look.background. It is the
  * oscilloscope's composite, byte for byte. "dark" is transparent over a
  * dark page. It draws the screen's light without the floor, premultiplied,
  * with alpha at its brightest channel. "light" is transparent over a light
@@ -93,7 +93,7 @@ export { createPhosphorScreen } from "./screen"
  * no brightness step.
  */
 
-export { detectPhosphorSupport } from "./support"
+export { detectScreenSupport } from "./support"
 
 export {
   DEFAULT_LOOK,
@@ -115,9 +115,9 @@ export type {
   FrameWriter,
   Ground,
   PauseReason,
-  PhosphorLook,
-  PhosphorScreen,
-  PhosphorSupport,
+  ScreenLook,
+  Screen,
+  ScreenSupport,
   ProduceResult,
   Producer,
   Rgb,

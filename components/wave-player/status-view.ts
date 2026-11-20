@@ -4,9 +4,14 @@
  * reads differently in two places.
  */
 
-import type { FailReason, StatusKind, WavePlayerStatus } from "./model"
+import type {
+  FailReason,
+  PlayerState,
+  StatusKind,
+  WavePlayerStatus,
+} from "./model"
 
-/** A status Badge: the machine's voice, in caps, as the oscilloscope's stage badge is. */
+/** A status Badge: a caps label in the label face, as every block's status badge is. */
 export type StatusBadge = {
   readonly label: string
   readonly variant: "secondary" | "outline" | "warning" | "destructive"
@@ -20,7 +25,7 @@ export type StatusView = {
   readonly glyph: "play" | "pause" | "retry"
   /** The center button's accessible name. */
   readonly label: "Play" | "Pause" | "Replay" | "Retry"
-  /** False after a failure: every time readout shows --:--. */
+  /** False after a failure: every time readout shows --:--. Views read timesKnown. */
   readonly times: boolean
   /** A seek applies now, or once the track loads. */
   readonly seekable: boolean
@@ -123,7 +128,12 @@ export const STATUS_VIEW = {
   },
 } as const satisfies Record<StatusKind, StatusView>
 
-/** The Alert over a failed track's screen. Retry is offered where pressing it can help. */
+/** Whether the views print times. False with no track and after a failure, when every time readout shows --:--. */
+export function timesKnown(state: PlayerState): boolean {
+  return state.current !== null && STATUS_VIEW[state.status.kind].times
+}
+
+/** The Alert over a failed track's screen. `retry` turns the transport's center key to Retry where pressing it can help. */
 export const FAILURE = {
   load: {
     title: "Couldn't load the track",
@@ -152,7 +162,7 @@ export const FAILURE = {
 
 /**
  * The live region's sentence. Loading, playing, and paused share "Now
- * playing <title>", so pause and resume stay quiet and a track change speaks
+ * playing <title>.", so pause and resume stay quiet and a track change speaks
  * once. A failure says the track couldn't load and never that it isn't
  * audio, since Chromium reports a 404, a host without CORS, and an
  * undecodable file the same way. Empty when there is nothing to say.
@@ -168,7 +178,7 @@ export function announcement(status: WavePlayerStatus): string {
     case "loading":
     case "playing":
     case "paused":
-      return `Now playing ${title}`
+      return `Now playing ${title}.`
     case "blocked":
       return `Press Play to hear ${title}.`
     case "ended":

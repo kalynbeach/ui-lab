@@ -14,6 +14,7 @@
 import {
   TONE_LIMITS,
   clampNumber,
+  formatAtStep,
   toSeconds,
   type Wave,
 } from "@/lib/audio/index"
@@ -23,7 +24,7 @@ import {
   type BeamStyle,
   type ScreenPresetId,
   type TraceColor,
-} from "@/lib/phosphor/index"
+} from "@/lib/screen/index"
 import {
   DEFAULT_DISPLAY,
   DISPLAY_LIMITS,
@@ -109,7 +110,7 @@ export type Motion = {
 /** "auto": astral on a light page. On a dark one, P31's own green on P31 and phosphor on any other screen. */
 export type FigureColor = "auto" | TraceColor
 
-/** How the phosphor draws. Shared by every form, so the four read as one instrument. */
+/** How the screen draws. Shared by every form, so the four read as one instrument. */
 export type Look = {
   readonly screen: ScreenPresetId
   readonly color: FigureColor
@@ -261,6 +262,7 @@ export type NumberControl = ControlBase & {
   readonly scale: "linear" | "log" | "cyclic"
   /** One key press: an amount, or a factor on a log control. */
   readonly nudge: number
+  /** The readout and the slider's spoken value, at the step's precision through formatAtStep. */
   format(value: number): string
   read(config: WaveformConfig): number
   set(config: WaveformConfig, value: number): WaveformConfig
@@ -324,12 +326,20 @@ const toggle = (control: Omit<SwitchControl, "kind">): SwitchControl => ({
   ...control,
 })
 
-const signed = (value: number, digits: number) =>
-  `${value < 0 ? "−" : "+"}${Math.abs(value).toFixed(digits)}`
+/*
+ * Each readout prints its value at its control's step through formatAtStep,
+ * Kevelle's precision rule. A readout in another unit, such as %, °, or ms,
+ * passes the step in that unit: Strength's 0.01 step is 1%.
+ */
+const SIGNED = { signed: true } as const
 
-const hz = (value: number) => `${value.toFixed(value < 100 ? 2 : 1)} Hz`
+const hz = (value: number) => `${formatAtStep(value, 0.1)} Hz`
 
-const degrees = (radians: number) => `${Math.round((radians * 180) / Math.PI)}°`
+const degrees = (radians: number) =>
+  `${formatAtStep((radians * 180) / Math.PI, 1)}°`
+
+const percent = (value: number, step: number) =>
+  `${formatAtStep(value * 100, step)}%`
 
 const WAVES: readonly ChoiceOption<Wave>[] = [
   { value: "sine", label: "Sine" },
@@ -401,7 +411,7 @@ function formControls(form: Form) {
       step: 0.01,
       scale: "linear",
       nudge: 0.05,
-      format: (value) => `×${value.toFixed(2)}`,
+      format: (value) => `×${formatAtStep(value, 0.01)}`,
       read: (config) => config.forms[form].size,
       set: (config, size) => withForm(config, form, { size }),
     }),
@@ -414,7 +424,7 @@ function formControls(form: Form) {
       step: 0.01,
       scale: "linear",
       nudge: 0.05,
-      format: (value) => `${Math.round(value * 100)}%`,
+      format: (value) => percent(value, 1),
       read: (config) => config.forms[form].strength,
       set: (config, strength) => withForm(config, form, { strength }),
     }),
@@ -427,7 +437,7 @@ function formControls(form: Form) {
       step: 0.5,
       scale: "linear",
       nudge: 0.5,
-      format: (value) => `${value.toFixed(1)} px`,
+      format: (value) => `${formatAtStep(value, 0.5)} px`,
       read: (config) => config.forms[form].depth,
       set: (config, depth) => withForm(config, form, { depth }),
     }),
@@ -440,7 +450,7 @@ function formControls(form: Form) {
       step: 0.01,
       scale: "linear",
       nudge: 0.05,
-      format: (value) => `${Math.round(value * 100)}%`,
+      format: (value) => percent(value, 1),
       read: (config) => config.forms[form].reactivity,
       set: (config, reactivity) => withForm(config, form, { reactivity }),
     }),
@@ -532,7 +542,7 @@ export const CONTROLS: ControlTable = {
     step: 1,
     scale: "linear",
     nudge: 1,
-    format: (value) => `${signed(value, 0)} ct`,
+    format: (value) => `${formatAtStep(value, 1, SIGNED)} ct`,
     read: (config) => config.tones.x.detuneCents,
     set: (config, detuneCents) => withX(config, { detuneCents }),
   }),
@@ -544,7 +554,7 @@ export const CONTROLS: ControlTable = {
     step: 1,
     scale: "linear",
     nudge: 1,
-    format: (value) => `${signed(value, 0)} ct`,
+    format: (value) => `${formatAtStep(value, 1, SIGNED)} ct`,
     read: (config) => config.tones.y.detuneCents,
     set: (config, detuneCents) => withY(config, { detuneCents }),
   }),
@@ -581,7 +591,7 @@ export const CONTROLS: ControlTable = {
     step: 0.01,
     scale: "linear",
     nudge: 0.01,
-    format: (value) => `${signed(value, 2)} Hz`,
+    format: (value) => `${formatAtStep(value, 0.01, SIGNED)} Hz`,
     read: (config) => config.motion.drift,
     set: (config, drift) => withMotion(config, { drift }),
   }),
@@ -594,7 +604,7 @@ export const CONTROLS: ControlTable = {
     step: 1,
     scale: "linear",
     nudge: 5,
-    format: (value) => `${Math.round(value)} ct`,
+    format: (value) => `${formatAtStep(value, 1)} ct`,
     read: (config) => config.motion.wander,
     set: (config, wander) => withMotion(config, { wander }),
   }),
@@ -613,7 +623,7 @@ export const CONTROLS: ControlTable = {
     step: 0.01,
     scale: "log",
     nudge: 2 ** (1 / 4),
-    format: (value) => `${value.toFixed(2)} Hz`,
+    format: (value) => `${formatAtStep(value, 0.01)} Hz`,
     read: (config) => config.motion.wanderRate,
     set: (config, wanderRate) => withMotion(config, { wanderRate }),
   }),
@@ -626,7 +636,7 @@ export const CONTROLS: ControlTable = {
     step: 1 / 360,
     scale: "cyclic",
     nudge: 1 / 72,
-    format: (value) => `${Math.round(value * 360)}°`,
+    format: (value) => `${formatAtStep(value * 360, 1)}°`,
     read: (config) => config.motion.rotation,
     set: (config, rotation) => withMotion(config, { rotation }),
   }),
@@ -639,7 +649,7 @@ export const CONTROLS: ControlTable = {
     step: 0.005,
     scale: "linear",
     nudge: 0.005,
-    format: (value) => `${signed(value, 3)}/s`,
+    format: (value) => `${formatAtStep(value, 0.005, SIGNED)}/s`,
     read: (config) => config.motion.spin,
     set: (config, spin) => withMotion(config, { spin }),
   }),
@@ -652,7 +662,7 @@ export const CONTROLS: ControlTable = {
     step: 1,
     scale: "linear",
     nudge: 1,
-    format: (value) => `×${Math.round(value)}`,
+    format: (value) => `×${formatAtStep(value, 1)}`,
     read: (config) => config.motion.symmetry,
     set: (config, symmetry) =>
       withMotion(config, { symmetry: Math.round(symmetry) }),
@@ -702,7 +712,7 @@ export const CONTROLS: ControlTable = {
     step: 1e-5,
     scale: "log",
     nudge: 2 ** (1 / 4),
-    format: (value) => `${(value * 1000).toFixed(2)} ms`,
+    format: (value) => `${formatAtStep(value * 1000, 0.01)} ms`,
     read: (config) => config.display.xy.delay,
     set: (config, delay) => withXy(config, { delay: toSeconds(delay) }),
   }),
@@ -767,7 +777,7 @@ export const CONTROLS: ControlTable = {
     step: 0.01,
     scale: "linear",
     nudge: 0.05,
-    format: (value) => signed(value, 2),
+    format: (value) => formatAtStep(value, 0.01, SIGNED),
     read: (config) => config.display.yt.trigger.level,
     set: (config, level) => withTrigger(config, { level }),
   }),
@@ -793,7 +803,7 @@ export const CONTROLS: ControlTable = {
     step: 0.05,
     scale: "linear",
     nudge: 0.05,
-    format: (value) => `${Math.round(value * 100)}%`,
+    format: (value) => percent(value, 5),
     read: (config) => config.display.yt.pretrigger,
     set: (config, pretrigger) => withYt(config, { pretrigger }),
   }),
@@ -806,7 +816,7 @@ export const CONTROLS: ControlTable = {
     step: 0.01,
     scale: "linear",
     nudge: 0.01,
-    format: (value) => `${Math.round(value * 1000)} ms`,
+    format: (value) => `${formatAtStep(value * 1000, 10)} ms`,
     read: (config) => config.display.yt.holdoff,
     set: (config, holdoff) => withYt(config, { holdoff: toSeconds(holdoff) }),
   }),
@@ -840,7 +850,7 @@ export const CONTROLS: ControlTable = {
     step: 0.01,
     scale: "log",
     nudge: 2 ** (1 / 4),
-    format: (value) => `×${value.toFixed(2)}`,
+    format: (value) => `×${formatAtStep(value, 0.01)}`,
     read: (config) =>
       config.display.scale.kind === "fixed" ? config.display.scale.gain : 1,
     set: (config, gain) =>
@@ -869,7 +879,7 @@ export const CONTROLS: ControlTable = {
   "look.screen": choice<ScreenPresetId>({
     group: "light",
     label: "Screen",
-    effect: "The phosphor: its tint, tone, and how each color fades.",
+    effect: "The screen: its tint, tone, and how each color fades.",
     options: Object.values(SCREEN_PRESETS).map((screen) => ({
       value: screen.id,
       label: screen.label,
@@ -919,7 +929,7 @@ export const CONTROLS: ControlTable = {
     step: 1,
     scale: "linear",
     nudge: 4,
-    format: (value) => String(Math.round(value)),
+    format: (value) => formatAtStep(value, 1),
     read: (config) => config.look.persistence,
     set: (config, persistence) => withLook(config, { persistence }),
   }),
@@ -931,7 +941,7 @@ export const CONTROLS: ControlTable = {
     step: 0.05,
     scale: "linear",
     nudge: 0.05,
-    format: (value) => value.toFixed(2),
+    format: (value) => formatAtStep(value, 0.05),
     read: (config) => config.look.bloom,
     set: (config, bloom) => withLook(config, { bloom }),
   }),
@@ -944,7 +954,7 @@ export const CONTROLS: ControlTable = {
     step: 0.1,
     scale: "linear",
     nudge: 0.1,
-    format: (value) => `${value.toFixed(1)} px`,
+    format: (value) => `${formatAtStep(value, 0.1)} px`,
     read: (config) => config.look.focus,
     set: (config, focus) => withLook(config, { focus }),
   }),
@@ -956,7 +966,7 @@ export const CONTROLS: ControlTable = {
     step: 0.05,
     scale: "log",
     nudge: 2 ** (1 / 4),
-    format: (value) => `×${value.toFixed(2)}`,
+    format: (value) => `×${formatAtStep(value, 0.05)}`,
     read: (config) => config.look.intensity,
     set: (config, intensity) => withLook(config, { intensity }),
   }),

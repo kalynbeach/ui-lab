@@ -7,7 +7,7 @@
  */
 
 import { SCREEN_PRESETS } from "./presets"
-import type { PhosphorLook, Rgb } from "./types"
+import type { ScreenLook, Rgb } from "./types"
 
 /**
  * The refresh rate the predecessor's look was tuned at. It drew a fixed
@@ -213,7 +213,7 @@ export type FrameExposure = {
  * 1 leaves every value as it is.
  */
 export function frameUniforms(
-  look: PhosphorLook,
+  look: ScreenLook,
   frame: FrameExposure
 ): ScreenUniforms {
   const preset = SCREEN_PRESETS[look.screen]

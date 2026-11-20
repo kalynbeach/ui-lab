@@ -1,14 +1,14 @@
 /*
- * Screen presets: the phosphor's emission, decay, and screen response.
+ * Screen presets: each screen's emission, decay, and response.
  *
  * P31 carries the predecessor's constants exactly. Each was a literal in the
  * KKB Oscilloscope's trace and composite shaders and is a uniform here, so P31
  * with the line beam computes the same arithmetic per pass. P7, P11, and
- * Neutral were tuned on the Phosphor page, against a slow circling spot that
+ * Neutral were tuned on the Screen page, against a slow circling spot that
  * shows the trace at each age and against the static Circle scene.
  */
 
-import type { PhosphorLook, Rgb, ScreenPresetId, TraceColor } from "./types"
+import type { ScreenLook, Rgb, ScreenPresetId, TraceColor } from "./types"
 
 export type ScreenPreset = {
   readonly id: ScreenPresetId
@@ -106,7 +106,7 @@ export const LOOK_LIMITS = {
  * The predecessor's Circle preset look, on its own opaque screen at full
  * resolution. HDR is off so the default look holds on HDR displays too.
  */
-export const DEFAULT_LOOK: PhosphorLook = {
+export const DEFAULT_LOOK: ScreenLook = {
   screen: "p31",
   beam: "line",
   persistence: 64,
@@ -133,7 +133,7 @@ function within(value: number, limit: Limit, fallback: number) {
  * Clamps every numeric field into LOOK_LIMITS, drops traces past MAX_TRACES,
  * and drops a referenceSize that is not a finite positive number.
  */
-export function clampLook(look: PhosphorLook): PhosphorLook {
+export function clampLook(look: ScreenLook): ScreenLook {
   const { referenceSize, ...fields } = look
   const [first, ...rest] = look.traces
 

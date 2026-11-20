@@ -21,7 +21,7 @@
 
 import type { Frame, SampleWindow } from "@/lib/audio/index"
 import { toFrame } from "@/lib/audio/index"
-import type { FrameWriter } from "@/lib/phosphor/index"
+import type { FrameWriter } from "@/lib/screen/index"
 
 import type { XySettings, YtSettings } from "./settings"
 import { SWEEP_DIVISIONS } from "./settings"

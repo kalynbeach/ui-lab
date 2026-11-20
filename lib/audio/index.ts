@@ -97,6 +97,18 @@ export {
  * output stays within the ceiling while the source peak plus
  * NOISE_PEAK × noiseLevel² stays at or below 1, so budget noise headroom
  * with NOISE_PEAK. ./safety.ts covers the ramps and the master soft clip.
+ *
+ * Set values. Every block prints a value a person sets with
+ * formatAtStep(value, step), so it shows as many decimals as its control's
+ * step: 140.0 Hz for a 0.1 Hz step, 400 Hz for a 1 Hz step. A number field
+ * passes stepDecimals(step) as its minimum and maximum fraction digits, so
+ * its text matches. ./units.ts covers signs and rounding.
+ *
+ * Media controls. A page has one set of OS media controls, and the player
+ * that played last answers them. A block calls claimMediaSession() when it
+ * starts playing, writes navigator.mediaSession only while claim.owns(),
+ * and calls claim.release() when it lets go, which does nothing once a
+ * newer claim holds the controls.
  */
 
 export type { AudioStation, StationSnapshot, StationError } from "./station"
@@ -168,8 +180,14 @@ export {
   toContextTime,
   toFrame,
   clampNumber,
+  stepDecimals,
+  formatAtStep,
   ok,
   err,
 } from "./units"
 
 export type { Hz, Seconds, ContextTime, Frame, Result } from "./units"
+
+export { claimMediaSession } from "./media-session"
+
+export type { MediaClaim } from "./media-session"

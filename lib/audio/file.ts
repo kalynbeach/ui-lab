@@ -262,11 +262,10 @@ export function createFilePlayer(
       for (const [type, listener] of listeners)
         next.addEventListener(type, listener)
 
-      const source = context.createMediaElementSource(next)
-
-      source.connect(into)
+      // Owned before the context can refuse it, so detach() still releases it.
       element = next
-      node = source
+      node = context.createMediaElementSource(next)
+      node.connect(into)
 
       if (wantsPlay) void start()
     },

@@ -5,7 +5,7 @@
 | Item | Target | Kind |
 | --- | --- | --- |
 | `audio` | `lib/audio/` | pinned |
-| `phosphor` | `lib/phosphor/` | pinned |
+| `screen` | `lib/screen/` | pinned |
 | `scope` | `lib/scope/` | pinned |
 | `waveform` | `components/waveform/` (5 of its files) | pinned |
 | `wave-player` | `components/wave-player/` (13 core `.ts` files) | seed |
@@ -36,7 +36,7 @@ It skips the content of seed files.
 
 ## Update the pinned files
 
-1. Run `bun tools/kevelle/vendor.ts`. It fetches every pinned item, rewrites its files, and rewrites the manifest. Seed rows in the manifest stay as they are. A pinned file that the registry no longer serves is removed.
+1. Run `bun tools/kevelle/vendor.ts`. It fetches every pinned item, rewrites its files, and rewrites the manifest. Seed rows in the manifest stay as they are. A pinned file that the registry no longer serves is removed, and so is every pinned file of an item that is no longer in `ITEMS`. A seed file is never removed.
 2. Read the diff, then run `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build`.
 3. Commit the files and `manifest.json` together.
 

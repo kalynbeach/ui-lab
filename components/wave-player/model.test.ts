@@ -45,6 +45,7 @@ function at(overrides: Partial<Situation> = {}): Situation {
     position: 0,
     duration: toSeconds(200),
     loaded: true,
+    retry: true,
     indexOf,
     ...overrides,
   }
@@ -56,6 +57,22 @@ const resume: Effect = { kind: "resume" }
 const restart: Effect = { kind: "restart" }
 const pause: Effect = { kind: "pause" }
 const cancel: Effect = { kind: "cancel" }
+
+describe("planCommand after a failure retrying can't fix", () => {
+  const stuck = at({ status: "failed", retry: false })
+
+  test.each<PlayerCommand>([
+    { type: "toggle" },
+    { type: "play" },
+    { type: "play-track", id: "b" },
+  ])("$type does nothing", (command) => {
+    expect(planCommand(command, stuck)).toEqual({ index: 1, effect: { kind: "none" } })
+  })
+
+  test("another row still loads its track", () => {
+    expect(planCommand({ type: "play-track", id: "c" }, stuck).index).toBe(2)
+  })
+})
 
 describe("planCommand keeps the track and picks an effect by status", () => {
   const rows: Record<

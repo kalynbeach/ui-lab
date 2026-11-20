@@ -1,9 +1,9 @@
 export { createScopeProducer } from "./producer"
 
 /*
- * kevelle/scope: an oscilloscope's path from a sample feed to a phosphor
+ * kevelle/scope: an oscilloscope's path from a sample feed to a
  * screen. It reads a kevelle/audio feed, draws the signal into a
- * kevelle/phosphor screen as an XY figure or a triggered YT sweep, and
+ * kevelle/screen screen as an XY figure or a triggered YT sweep, and
  * measures it for a readout.
  *
  * Import from this file only. Framework-free: no React, no DOM, no GPU. The
@@ -11,7 +11,7 @@ export { createScopeProducer } from "./producer"
  * figures can too.
  *
  * Usage. createScopeProducer({ getFeed, settings, frozen, onSingleDone,
- * budget }) returns { produce, readout }. Give produce to a phosphor screen
+ * budget }) returns { produce, readout }. Give produce to a screen
  * as its producer. Each frame it reads the feed from getFeed() and a
  * DisplaySettings from settings(), and draws every sample the listener has
  * heard since the last frame. budget() caps that at a number of samples,
@@ -23,7 +23,8 @@ export { createScopeProducer } from "./producer"
  * when it finishes and stays stopped until a resync or a new settings().yt
  * re-arms it. readout() returns the readings, the trigger status, the
  * feed's clock and layout, and the decimated flag described under Gaps, or
- * null until a feed has drawn. Poll it four times a second.
+ * null until a feed has drawn and while there is no feed. Poll it four
+ * times a second.
  *
  * Gain. The meter reads every sample raw, before gain. ScaleSettings "fixed"
  * multiplies by its gain. "auto" takes autoGain() of the held peak, which

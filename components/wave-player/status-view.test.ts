@@ -20,9 +20,9 @@ function status(kind: Exclude<StatusKind, "failed">): WavePlayerStatus {
 
 describe("announcement", () => {
   test("loading, playing, and paused share one sentence, so pause and resume stay quiet", () => {
-    expect(announcement(status("loading"))).toBe("Now playing Low tide")
-    expect(announcement(status("playing"))).toBe("Now playing Low tide")
-    expect(announcement(status("paused"))).toBe("Now playing Low tide")
+    expect(announcement(status("loading"))).toBe("Now playing Low tide.")
+    expect(announcement(status("playing"))).toBe("Now playing Low tide.")
+    expect(announcement(status("paused"))).toBe("Now playing Low tide.")
   })
 
   test("says nothing with no tracks or before the first play", () => {

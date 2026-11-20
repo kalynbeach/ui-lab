@@ -1,6 +1,6 @@
 /*
  * The scope's producer: the per-frame path from a sample feed to the
- * phosphor screen. It reads each feed through its own cursor from
+ * screen. It reads each feed through its own cursor from
  * createFeedCursor(), which hands it every sample once, one gap-free run at
  * a time.
  *
@@ -28,11 +28,8 @@ import {
   createFeedCursor,
   createSampleWindow,
 } from "@/lib/audio/index"
-import type {
-  FrameWriter,
-  Producer,
-} from "@/lib/phosphor/index"
-import { MAX_POINTS } from "@/lib/phosphor/index"
+import type { FrameWriter, Producer } from "@/lib/screen/index"
+import { MAX_POINTS } from "@/lib/screen/index"
 
 import type { DisplayInput, DisplayReport, TriggerStatus } from "./display"
 import { createSweepDisplay, createXyDisplay } from "./display"
@@ -121,7 +118,14 @@ export function createScopeProducer(deps: {
 
       const feed = deps.getFeed()
 
-      if (!feed) return "draw"
+      // Without a feed nothing is measured, so the readout clears rather
+      // than hold the last source's readings and clock. The cursor stays,
+      // so the same feed coming back still draws what it missed.
+      if (!feed) {
+        last = null
+
+        return "draw"
+      }
 
       const settings = deps.settings()
       const target = feed.heardAt(frame.now)

@@ -1,5 +1,5 @@
 /*
- * The phosphor screen's public types: the look, the frame a producer writes,
+ * The screen's public types: the look, the frame a producer writes,
  * and the screen's status.
  */
 
@@ -8,7 +8,7 @@ export type Rgb = readonly [number, number, number]
 
 export type Backend = "webgpu" | "webgl2"
 
-export type PhosphorSupport = "unknown" | Backend | "unsupported"
+export type ScreenSupport = "unknown" | Backend | "unsupported"
 
 export type ScreenPresetId = "p31" | "p7" | "p11" | "neutral"
 
@@ -31,7 +31,7 @@ export type TraceIndex = 0 | 1 | 2 | 3
 /**
  * What the canvas sits on.
  *
- * "screen": the phosphor's own opaque screen, lifted by `background`. The
+ * "screen": an opaque screen of its own, lifted by `background`. The
  * predecessor's composite, byte for byte.
  * "dark": transparent over a dark page. The composite emits premultiplied
  * light whose alpha is its brightest channel.
@@ -40,7 +40,7 @@ export type TraceIndex = 0 | 1 | 2 | 3
  */
 export type Ground = "screen" | "dark" | "light"
 
-export type PhosphorLook = {
+export type ScreenLook = {
   readonly screen: ScreenPresetId
   readonly beam: BeamStyle
   /** 16 to 128. The predecessor's trailLength, same mapping, so the default look ports exactly. */
@@ -136,12 +136,12 @@ export type ScreenStatus =
   | { readonly kind: "recovering"; readonly attempt: 1 | 2 | 3 }
   | { readonly kind: "failed"; readonly error: ScreenError }
 
-export interface PhosphorScreen {
+export interface Screen {
   /** The same object until the status changes, so it works as a useSyncExternalStore snapshot. */
   getStatus(): ScreenStatus
   subscribe(listener: () => void): () => void
   /** Applies a new look, clamped to LOOK_LIMITS. Trace colors re-resolve only when `traces`, `screen`, or `ground` changes. */
-  setLook(look: PhosphorLook): void
+  setLook(look: ScreenLook): void
   setProducer(produce: Producer): void
   /** Wipes the history, as on a mode change: to the background on the screen ground, to black on the others. */
   clear(): void

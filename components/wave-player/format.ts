@@ -21,9 +21,10 @@ export function formatClock(seconds: number | null): string {
 }
 
 /**
- * The remaining time with a leading minus: 84 of 272 -> "-03:08". It counts
- * from the whole seconds the elapsed and duration readouts show, so the
- * three always add up. "--:--" while the duration is unknown.
+ * The remaining time with a leading minus sign, U+2212, as the oscilloscope
+ * prints negatives: 84 of 272 -> "−03:08". It counts from the whole seconds
+ * the elapsed and duration readouts show, so the three always add up.
+ * "--:--" while the duration is unknown.
  */
 export function formatRemaining(
   position: number,
@@ -31,7 +32,7 @@ export function formatRemaining(
 ): string {
   if (duration === null) return UNKNOWN_TIME
 
-  return `-${formatClock(Math.max(0, Math.floor(duration) - Math.floor(position)))}`
+  return `−${formatClock(Math.max(0, Math.floor(duration) - Math.floor(position)))}`
 }
 
 /** Minutes without padding, for speech: 84 -> "1:24". */
@@ -51,7 +52,7 @@ export function seekValueText(
     : `${spoken(position)} of ${spoken(duration)}`
 }
 
-/** The Library count: 5 -> "05". Two digits, or more for a longer list. */
+/** The Playlist's track count: 5 -> "05". Two digits, or more for a longer list. */
 export function formatCount(count: number): string {
   return String(count).padStart(2, "0")
 }

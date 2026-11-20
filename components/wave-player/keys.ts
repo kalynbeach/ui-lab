@@ -15,13 +15,15 @@ export type KeyInput = {
   readonly target: EventTarget | null
 }
 
+/** Elements that act on Space themselves. A range input does not, so the seek bar leaves Space to the view. */
 const OWNS_SPACE =
-  'button, a[href], input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="slider"], [role="switch"], [role="checkbox"], [role="radio"]'
+  'button, a[href], input:not([type="range"]), select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="slider"], [role="switch"], [role="checkbox"], [role="radio"]'
 
 /**
  * Whether Space toggles play and pause. Not on a repeat, a chord with Ctrl,
  * Meta, or Alt, a key a control already handled, or a key from inside an
- * element that acts on Space itself, such as a button or the seek input.
+ * element that acts on Space itself, such as a button. The seek bar's range
+ * input takes no Space, so Space plays and pauses while it has focus.
  */
 export function spaceToggles(event: KeyInput): boolean {
   if (

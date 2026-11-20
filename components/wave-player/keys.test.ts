@@ -36,7 +36,7 @@ describe("spaceToggles", () => {
 
   test.each([
     "<button></button>",
-    '<input type="range">',
+    '<input type="text">',
     "<textarea></textarea>",
     '<div role="slider"></div>',
     '<div role="switch"></div>',
@@ -48,6 +48,13 @@ describe("spaceToggles", () => {
     const target = host.querySelector("span") ?? host.firstElementChild
 
     expect(spaceToggles(key({ target }))).toBe(false)
+  })
+
+  test("from inside a range input, which takes no Space itself", () => {
+    const host = document.createElement("div")
+    host.innerHTML = '<input type="range">'
+
+    expect(spaceToggles(key({ target: host.firstElementChild }))).toBe(true)
   })
 })
 

@@ -63,6 +63,7 @@ import {
   type PlaylistIssue,
   type WavePlayerTrack,
 } from "./playlist"
+import { FAILURE } from "./status-view"
 
 /** The strip's gain at level 1. Mastered music peaks near 1, and 0.5 keeps it in the master soft clip's linear range. */
 const PLAYER_CEILING = 0.5
@@ -266,6 +267,9 @@ export function createPlayerStore(
       position: handle?.position() ?? 0,
       duration: current.track.duration,
       loaded: handle !== null,
+      retry:
+        snapshot.status.kind !== "failed" ||
+        FAILURE[snapshot.status.reason].retry,
       indexOf: playlist.indexOf,
     })
 
@@ -283,6 +287,9 @@ export function createPlayerStore(
       // synchronously, before its first await. Calling it on every sounding
       // gesture also recovers a context Safari suspended "by system".
       void acquire().station.start()
+      // A gesture that starts playback takes the OS media controls back from
+      // any player that played since. The commit below writes them.
+      nowPlaying?.claim()
     }
 
     if (plan.index !== index) {

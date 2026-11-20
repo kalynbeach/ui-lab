@@ -9,7 +9,7 @@
 
 import type { ViewTransitionProps } from "react"
 
-/** The views that draw the player's frame. The Library has none. */
+/** The views that draw the player's frame. The Playlist has none. */
 export type FrameKind = "card" | "mini" | "bar"
 
 /**

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest"
 
-import { auditManifest, targetOf, type ItemSpec, type Manifest } from "./vendor"
+import {
+  auditManifest,
+  obsoleteFiles,
+  targetOf,
+  type ItemSpec,
+  type Manifest,
+  type ManifestFile,
+} from "./vendor"
 
 const audio: ItemSpec = { item: "audio", dir: "lib/audio" }
 const waveform: ItemSpec = { item: "waveform", dir: "components/waveform", only: ["engine.ts"] }
@@ -19,7 +26,7 @@ describe("targetOf", () => {
     "@lib/../../../escape.ts",
     "@lib/audio/../../escape.ts",
     "@components/../../escape.ts",
-    "@lib/phosphor/feed.ts",
+    "@lib/screen/feed.ts",
     "/etc/passwd",
     "@lib/audio\\..\\..\\escape.ts",
   ])("refuses %s", (target) => {
@@ -28,6 +35,41 @@ describe("targetOf", () => {
 
   test("refuses a file with no target", () => {
     expect(() => targetOf(audio, { path: "r/feed.ts" })).toThrow(/no target/)
+  })
+})
+
+describe("obsoleteFiles", () => {
+  const row = (item: string, target: string, seed = false): ManifestFile => ({
+    item,
+    source: `r/${target}`,
+    target,
+    sha256: "0",
+    seed,
+  })
+  const previous = [
+    row("audio", "lib/audio/feed.ts"),
+    row("audio", "lib/audio/gone.ts"),
+    row("waveform", "components/waveform/engine.ts"),
+    row("phosphor", "lib/phosphor/index.ts"),
+    row("wave-player", "components/wave-player/model.ts", true),
+  ]
+  const written = new Set(["lib/audio/feed.ts"])
+  const refreshed = new Set(["audio"])
+
+  test("removes a pinned file the registry stopped serving, and leaves an item that was not refreshed", () => {
+    expect(obsoleteFiles(previous, written, refreshed, [...specs, { item: "phosphor", dir: "lib/phosphor" }])).toEqual([
+      "lib/audio/gone.ts",
+    ])
+  })
+
+  test("removes every pinned file of an item that left the list", () => {
+    expect(obsoleteFiles(previous, written, refreshed, specs)).toEqual(["lib/audio/gone.ts", "lib/phosphor/index.ts"])
+  })
+
+  test("never removes a seed file, even when its item left the list", () => {
+    expect(obsoleteFiles(previous, written, refreshed, [audio, waveform])).not.toContain(
+      "components/wave-player/model.ts"
+    )
   })
 })
 

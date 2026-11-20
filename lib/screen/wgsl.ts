@@ -177,7 +177,7 @@ fn fs(input: BeamOut) -> @location(0) vec4f {
 /*
  * The composite is the predecessor's, with each color literal replaced by a
  * uniform holding the same value. Blur weights stay literals; they are the
- * kernel, not a phosphor property. The variants differ only in `tail`, the
+ * kernel, not a screen property. The variants differ only in `tail`, the
  * lines after the hot core. The HDR tails alone lift the hot core by
  * 1 + (headroom - 1) * highlight; the screen's SDR tail never contains that
  * factor, so it computes the predecessor's arithmetic.

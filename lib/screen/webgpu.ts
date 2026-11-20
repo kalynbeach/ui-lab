@@ -109,7 +109,7 @@ export const acquireWebGpu: AcquireRenderer = async (canvas, onLost) => {
 
     if (logged.has(message)) return
     logged.add(message)
-    console.error("[kevelle/phosphor]", message)
+    console.error("[kevelle/screen]", message)
   })
   // device.lost resolves for any loss. Only the renderer's own destroy() is
   // expected; an outside device.destroy() is a loss to recover from. Report

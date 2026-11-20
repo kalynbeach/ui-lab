@@ -5,7 +5,7 @@
  * tones, its own cursor on the audio for the level, and the envelope. Each
  * animation frame it computes one Moment, memoized on the rAF timestamp, so
  * every form drawn in that frame reads the same tones, feed, and envelope.
- * Each attached form owns its phosphor screen, a scope producer that reads
+ * Each attached form owns its screen, a scope producer that reads
  * the shared feed through its own cursor, a recorder that replays what the
  * scope wrote once per symmetry copy through the form's pose, its presence,
  * and its stillness. A form with its own figure, or the mark, which draws
@@ -70,12 +70,12 @@ import {
 import {
   LOOK_LIMITS,
   MAX_POINTS,
-  createPhosphorScreen,
-  type PhosphorLook,
-  type PhosphorScreen,
+  createScreen,
+  type ScreenLook,
+  type Screen,
   type Producer,
   type ScreenStatus,
-} from "@/lib/phosphor/index"
+} from "@/lib/screen/index"
 import {
   createScopeProducer,
   type DisplaySettings,
@@ -139,10 +139,10 @@ export type FormState = {
 
 /**
  * What a form's runtime needs from its canvas. attach() builds one over a
- * phosphor screen; a test can build its own and call produce itself.
+ * screen; a test can build its own and call produce itself.
  */
 export type FormSurface = {
-  setLook(look: PhosphorLook): void
+  setLook(look: ScreenLook): void
   clear(): void
   /** The canvas's opacity and blur in CSS px. */
   paint(opacity: number, depth: number): void
@@ -210,8 +210,9 @@ export type WaveformEngine = {
   }): void
   /** What every form under the engine does, from its next frame. Idempotent. */
   hold(next: WaveformHold | null): void
+  /** Kicks every form. Does nothing while held, under hold() or reduced motion, where no form could show it. */
   strike(): void
-  /** A press's touch: the punch rises to at least `punch`, 0 to 0.9, as a strike raises it to 0.9. */
+  /** A press's touch: the punch rises to at least `punch`, 0 to 0.9, as a strike raises it to 0.9. Does nothing while held, as strike() does. */
   touch(punch: number): void
   /** Draws a form on `canvas` until destroy(). The glow and the mark draw this way. */
   attach(canvas: HTMLCanvasElement, state: FormState): AttachedForm
@@ -617,7 +618,7 @@ export function createWaveform(init: {
 
     // The mark never flares: at 20 px, bloom fills its figure's gaps. The
     // punch still swells it.
-    const flared = (): PhosphorLook =>
+    const flared = (): ScreenLook =>
       flare > 0 && state.form !== "mark"
         ? {
             ...look,
@@ -946,7 +947,7 @@ export function createWaveform(init: {
   /** A surface over `canvas` that paints the form's opacity and blur on it and reaches its screen. */
   function canvasSurface(
     canvas: HTMLCanvasElement,
-    screen: () => PhosphorScreen
+    screen: () => Screen
   ): FormSurface {
     let painted = { opacity: Number.NaN, depth: Number.NaN }
     canvas.style.opacity = "0"
@@ -975,7 +976,7 @@ export function createWaveform(init: {
     }
   }
 
-  /** Runs a form's runtime on a phosphor screen over `canvas`. The returned function stops it. */
+  /** Runs a form's runtime on a screen over `canvas`. The returned function stops it. */
   function show(
     canvas: HTMLCanvasElement,
     runtime: {
@@ -985,7 +986,7 @@ export function createWaveform(init: {
     },
     state: FormState
   ) {
-    const screen = createPhosphorScreen(canvas, {
+    const screen = createScreen(canvas, {
       look: lookFor(config, state.form, theme),
       produce: runtime.produce,
     })
@@ -1130,11 +1131,13 @@ export function createWaveform(init: {
       holding = next
     },
     strike() {
+      if (modeOf(holding, reducedMotion) !== "live") return
       envelope = strike(envelope)
 
       for (const form of forms) form.struck()
     },
     touch(punch) {
+      if (modeOf(holding, reducedMotion) !== "live") return
       envelope = { punch: Math.max(envelope.punch, punch) }
 
       for (const form of forms) form.struck()

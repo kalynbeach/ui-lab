@@ -392,7 +392,7 @@ export type PlayerCommand =
   | { readonly type: "pause" }
   | { readonly type: "next" }
   | { readonly type: "previous" }
-  /** A Library row. An unknown id does nothing. */
+  /** A Playlist row. An unknown id does nothing. */
   | { readonly type: "play-track"; readonly id: string }
   /** Seconds. The plan clamps it into the track. */
   | { readonly type: "seek"; readonly to: number }
@@ -411,6 +411,8 @@ export type Situation = {
   readonly duration: Seconds | null
   /** A file handle exists for the current track. */
   readonly loaded: boolean
+  /** False after a failure retrying can't fix, such as No Web Audio. */
+  readonly retry: boolean
   readonly indexOf: ReadonlyMap<string, number>
 }
 
@@ -469,7 +471,7 @@ const CURRENT_ROW = {
 /**
  * The transport rules:
  *
- *   toggle      TOGGLE above
+ *   toggle      TOGGLE above, but nothing on a failure retrying can't fix
  *   play        as toggle, but nothing while loading or playing
  *   pause       playing pauses, loading cancels, otherwise nothing
  *   next        the next track, playing, even from paused; nothing on the last track
@@ -484,6 +486,18 @@ const CURRENT_ROW = {
  */
 export function planCommand(command: PlayerCommand, at: Situation): Plan {
   const stay = (effect: Effect): Plan => ({ index: at.index, effect })
+
+  // Retry is off where it can't help, so Space, Play, and the current row
+  // stay quiet there too.
+  if (at.status === "failed" && !at.retry) {
+    if (command.type === "toggle" || command.type === "play") return stay(NONE)
+
+    if (
+      command.type === "play-track" &&
+      at.indexOf.get(command.id) === at.index
+    )
+      return stay(NONE)
+  }
 
   switch (command.type) {
     case "toggle":
@@ -565,7 +579,7 @@ export type Load =
 
 /**
  * What the mounted views need. "durations": every track's duration (the
- * Library). "current": the current track's duration (every other view).
+ * Playlist). "current": the current track's duration (every other view).
  * "peaks": the current track's peaks (the card's seek bar).
  */
 export type Need = "durations" | "current" | "peaks"
@@ -583,7 +597,7 @@ export function loadKey(load: Load): string {
  * changes nothing.
  *
  *   durations  the current track's while it sits idle without one (once
- *              loading, the element reports it), then, for the Library,
+ *              loading, the element reports it), then, for the Playlist,
  *              every other track without one
  *   peaks      the current track's, without peaks, once playback has run
  *

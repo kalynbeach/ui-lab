@@ -89,7 +89,7 @@ import {
 
 /** Draft copy for Kalyn to rewrite: every string the keys show or announce. */
 export const COPY = {
-  stage: "Waveform. Press to strike it.",
+  stage: (label: string) => `${label}. Press to strike it.`,
   hint: "Type to play. Press ? for the keys.",
   strikeHint: "Press Enter or Space to strike it.",
   guide: "Keys",
