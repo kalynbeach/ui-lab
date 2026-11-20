@@ -53,14 +53,14 @@ The variants are `WavePlayerCard`, `WavePlayerMini`, `WavePlayerBar`, and `WaveP
 | File | Parts |
 | --- | --- |
 | `parts.tsx` | `WavePlayerScreen`, `WavePlayerTitle`, `WavePlayerByline`, `WavePlayerStatus`, `WavePlayerDuration`, `WavePlayerIndex`, `WavePlayerTransport`, `WavePlayerShuffle`, `WavePlayerRepeat`, `WavePlayerVolume`, `WavePlayerLevel`, `WavePlayerMute`, `WavePlayerSettings` |
-| `seek.tsx` | `WavePlayerSeek` (a waveform or a line), `WavePlayerTime`, `WavePlayerProgress` |
+| `seek.tsx` | `WavePlayerSeek` (a waveform or a line), `WavePlayerElapsed`, `WavePlayerRemaining`, `WavePlayerClock`, `WavePlayerProgress` |
 | `playlist-view.tsx` | `WavePlayerPlaylist`, on the `playlistGrid` primitive in `playlist-grid.ts` |
 | `frame.tsx` | `WavePlayerFrame`, the region that every variant renders inside. It owns the keyboard shortcuts. |
 | `agent.tsx` | `WavePlayerAgent`, the agent bridge |
 
-Every time readout prints `--:--` until the player knows the time. After a failure that trying again can't fix, such as a browser with no Web Audio, Play turns off and Previous and Next stay on.
+The card keeps Previous, Play, and Next centered, with Shuffle and Volume on their left and Repeat on their right. Under the waveform it prints the elapsed time on the left and the remaining time on the right. The mini and the bar print the elapsed time over the duration. Every time readout prints `--:--` until the player knows the time. After a failure that trying again can't fix, such as a browser with no Web Audio, Play turns off and Previous and Next stay on.
 
-The core has no React in it. `model.ts` decides what each command does, `store.ts` runs it against the browser, and `settings.ts` stores the settings in `localStorage` under the key `wave-player`.
+The core has no React in it. `model.ts` decides what each command does, `store.ts` runs it against the browser, and `settings.ts` stores the settings in `localStorage` under the key `wave-player`. The store writes a change 250 ms after the last one, and at once when the page is hidden or goes away.
 
 ### Keyboard
 
@@ -72,7 +72,6 @@ The core has no React in it. `model.ts` decides what each command does, `store.t
 | M | Mute |
 | S | Shuffle |
 | R | Cycles Repeat through Off, All, and One. |
-| T | Switches the time readout between elapsed and remaining time. |
 | Left and Right arrows on Seek | Seek 1 second. |
 | Page Up and Page Down on Seek | Seek 10 seconds. |
 | Escape while you drag Seek | Drops the drag without seeking. |
@@ -83,7 +82,7 @@ The letter keys do nothing while focus is in the Playlist, because there a lette
 
 ### Agents
 
-`WavePlayerAgent` creates one `createAgent` bridge and registers its tools with WebMCP when the browser has `document.modelContext`. An agent finds each control by its name, for example **Play**, **Seek**, **Volume**, **Level**, **Mute**, **Shuffle**, **Repeat**, **Remaining time**, and **Playlist**. Before an agent can press a control marked `data-agent-confirm`, such as **Add files**, the page asks the person in a dialog that the agent cannot see or answer. `agent.test.tsx` covers each of these steps.
+`WavePlayerAgent` creates one `createAgent` bridge and registers its tools with WebMCP when the browser has `document.modelContext`. An agent finds each control by its name, for example **Play**, **Seek**, **Volume**, **Level**, **Mute**, **Shuffle**, **Repeat**, and **Playlist**. Before an agent can press a control marked `data-agent-confirm`, such as **Add files**, the page asks the person in a dialog that the agent cannot see or answer. `agent.test.tsx` covers each of these steps.
 
 The bridge leaves a person's own files out of its snapshot, its item lists, and its query results, and it refuses to select or play one by name. An agent that reads the page itself, through the DOM, the accessibility tree, or a screenshot, sees what the person sees. That includes a file's title in the Playlist, the title line, the live region's announcement, the system's now-playing card, and the name of a file that **Add files** rejects.
 
@@ -126,9 +125,10 @@ The check visits `/wave-player` and each variant route at 1280 and 390 pixels wi
 
 On every route, the check confirms that each control has a name, that Tab reaches every control, and that the page has no horizontal scroll. After each check, and before it reloads the page in the settings check, it fails if a closed tooltip is still drawn. Before anything plays, it stores muted settings, reloads the page, and reads the stored settings back. On a route with transport, it also confirms that Mute is pressed, and then it:
 
-- plays, pauses, and confirms that the time and the screen hold while paused,
+- plays, requires the visible time readouts to move with the track, pauses, and confirms that the time and the screen hold while paused,
 - where the route has a Seek slider, seeks with the pointer to a point far from where the track stands, and requires the time to land near that point,
 - where the route has a Seek slider, seeks with Page Up or Page Down, requires the time to move 10 seconds while paused, and presses Space on Seek,
+- where the route prints the remaining time, requires the elapsed and remaining times to add up to the duration,
 - presses Next track and requires the next sample track, then presses Previous track within the first 3 seconds, and requires each track to start from 0 and play past its first second,
 - changes the volume and the settings, and reloads the page to confirm that the settings persisted.
 

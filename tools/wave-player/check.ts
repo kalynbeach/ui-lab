@@ -19,24 +19,27 @@ const WIDTHS = [1280, 390] as const
 type Width = (typeof WIDTHS)[number]
 
 // What each route must have, and must not have. Transport is Play, Previous
-// track, Next track, Mute, Level, Shuffle, Repeat, Remaining time, and the
-// screen. `time` is the time readout. `rows` lists the widths at which the
-// Playlist's rows are on the page. Every SKIP comes from this table.
+// track, Next track, Mute, Level, Shuffle, Repeat, the elapsed time, and the
+// screen. `time` is the control that shows the position. `remaining` says
+// the route prints the remaining time beside the elapsed time. `rows` lists
+// the widths at which the Playlist's rows are on the page. Every SKIP comes
+// from this table.
 type Route = {
   readonly path: string
   readonly transport: boolean
   readonly time: "Seek" | "Progress" | null
+  readonly remaining: boolean
   readonly rows: readonly Width[]
 }
 
 const ROUTES: readonly Route[] = [
-  { path: "/wave-player", transport: true, time: "Seek", rows: [] },
-  { path: "/wave-player/card", transport: true, time: "Seek", rows: [] },
-  { path: "/wave-player/mini", transport: true, time: "Seek", rows: [] },
-  { path: "/wave-player/bar", transport: true, time: "Progress", rows: [] },
+  { path: "/wave-player", transport: true, time: "Seek", remaining: true, rows: [] },
+  { path: "/wave-player/card", transport: true, time: "Seek", remaining: true, rows: [] },
+  { path: "/wave-player/mini", transport: true, time: "Seek", remaining: false, rows: [] },
+  { path: "/wave-player/bar", transport: true, time: "Progress", remaining: false, rows: [] },
   // Narrower than the card and the Playlist side by side, the Playlist sits behind Open Playlist.
-  { path: "/wave-player/with-playlist", transport: true, time: "Seek", rows: [1280] },
-  { path: "/wave-player/playlist", transport: false, time: null, rows: [1280, 390] },
+  { path: "/wave-player/with-playlist", transport: true, time: "Seek", remaining: true, rows: [1280] },
+  { path: "/wave-player/playlist", transport: false, time: null, remaining: false, rows: [1280, 390] },
 ]
 
 const SETTINGS_KEY = "wave-player"
@@ -96,7 +99,11 @@ type PlayerState = {
   readonly level: string | null
   readonly shuffle: string | null
   readonly repeat: string | null
-  readonly remaining: { readonly pressed: string | null; readonly text: string } | null
+  // The time readouts' text, such as "00:11" and "−00:21".
+  readonly elapsed: string | null
+  readonly remaining: string | null
+  // The mini's and the bar's one readout, such as "00:11 / 00:32".
+  readonly clock: string | null
   readonly canvas: boolean
   readonly next: boolean
   readonly previous: boolean
@@ -146,7 +153,10 @@ const READ_STATE = `(() => {
   const seek = find('[role="slider"]', "Seek", region)
   const progress = find('[role="progressbar"]', "Progress", region)
   const repeat = find('[role="radiogroup"]', "Repeat")
-  const remaining = button("Remaining time")
+  const readout = (slot) => {
+    const el = [...(region ?? document).querySelectorAll('[data-slot="' + slot + '"]')].find((node) => node.checkVisibility())
+    return el ? el.textContent.trim() : null
+  }
   const session = navigator.mediaSession
   return {
     region: region != null,
@@ -159,9 +169,9 @@ const READ_STATE = `(() => {
     level: find('[role="slider"]', "Level")?.getAttribute("aria-valuetext") ?? null,
     shuffle: button("Shuffle")?.getAttribute("aria-pressed") ?? null,
     repeat: repeat?.querySelector('[aria-checked="true"]')?.textContent.trim() ?? null,
-    remaining: remaining
-      ? { pressed: remaining.getAttribute("aria-pressed"), text: remaining.textContent.trim() }
-      : null,
+    elapsed: readout("wave-player-elapsed"),
+    remaining: readout("wave-player-remaining"),
+    clock: readout("wave-player-clock"),
     canvas: region?.querySelector("canvas") != null,
     next: button("Next track", region) != null,
     previous: button("Previous track", region) != null,
@@ -205,6 +215,33 @@ function seconds(text: string | null): number | null {
   const match = text?.match(/^(\d+):(\d{2})/)
 
   return match ? Number(match[1]) * 60 + Number(match[2]) : null
+}
+
+// A whole clock, "0:11", "00:11", or "1:02:03", in seconds. Anything else is null.
+function clock(text: string | null | undefined): number | null {
+  const match = text?.match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/)
+
+  return match ? Number(match[1] ?? 0) * 3_600 + Number(match[2]) * 60 + Number(match[3]) : null
+}
+
+// What the visible time readouts say against the position control: the elapsed
+// time within a second of it, and the clock's duration equal to its duration.
+function readoutsAgree(now: PlayerState): string {
+  const [position, total] = (now.time ?? "").split(" of ")
+  const at = clock(position)
+  const duration = clock(total)
+  const elapsed = clock(now.elapsed)
+  expect(at !== null && duration !== null, `the position reads "${now.time}"`)
+  expect(
+    elapsed !== null && Math.abs(elapsed - at) <= 1,
+    `the elapsed time reads "${now.elapsed}" while the position reads "${now.time}"`
+  )
+  if (now.clock !== null) {
+    const shown = clock(now.clock.split(" / ")[1])
+    expect(shown === duration, `the clock reads "${now.clock}" while the position reads "${now.time}"`)
+  }
+
+  return `elapsed ${now.elapsed}`
 }
 
 const press = (name: string) => ab("find", "role", "button", "click", "--name", name, "--exact")
@@ -339,6 +376,8 @@ type Check = {
 
 const needsTransport = ({ route }: At) => (route.transport ? null : `${route.path} has no transport`)
 const needsSeek = ({ route }: At) => (route.time === "Seek" ? null : `${route.path} has no Seek slider`)
+const needsRemaining = ({ route }: At) =>
+  route.remaining ? null : `${route.path} prints no remaining time`
 const needsRows = ({ route, width }: At) =>
   route.rows.includes(width) ? null : `${route.path} shows no Playlist rows at ${width} px`
 
@@ -356,6 +395,8 @@ const CHECKS: readonly Check[] = [
         Progress: route.time === "Progress",
         "Playlist rows": route.rows.includes(width),
         "volume and settings": route.transport,
+        "elapsed time": route.transport,
+        "remaining time": route.remaining,
       }
       type Part = keyof typeof want
       // Any sign of the part, which fails a route that rules it out.
@@ -367,10 +408,12 @@ const CHECKS: readonly Check[] = [
         Seek: s.seek,
         Progress: s.progress,
         "Playlist rows": s.rows.length > 0,
-        // Mute, Level, Shuffle, Repeat, and Remaining time, or a popup that could hold them.
+        // Mute, Level, Shuffle, and Repeat, or a popup that could hold them.
         "volume and settings":
-          [s.mute, s.level, s.shuffle, s.repeat, s.remaining].some((control) => control !== null) ||
+          [s.mute, s.level, s.shuffle, s.repeat].some((control) => control !== null) ||
           Object.values(s.popups).some((popup) => popup !== null),
+        "elapsed time": s.elapsed !== null,
+        "remaining time": s.remaining !== null,
       })
       // The whole part, which a route that requires it must have. The volume
       // and settings checks open the popups and require each control by name.
@@ -485,13 +528,15 @@ const CHECKS: readonly Check[] = [
       const to = seconds(state().time)
       const elapsed = ((Date.now() - startedAt) / 1_000).toFixed(1)
       expect(to !== null && to - from >= 1, `time "${started.time}" -> "${state().time}" in ${elapsed} s`)
+      // The readouts a person sees must move with the track, not only after a seek.
+      const readouts = readoutsAgree(state())
       expect(state().canvas, "the WavePlayer region has no canvas")
       const before = shot(`${slug}-playing`)
       await Bun.sleep(500)
       const changed = changedPercent(before, join(SHOTS, `${slug}-playing-diff.png`))
       expect(changed > 0, "the screen did not change between two screenshots 0.5 s apart")
 
-      return `time ${from}s -> ${to}s in ${elapsed} s; screen ${changed.toFixed(1)}% changed`
+      return `time ${from}s -> ${to}s in ${elapsed} s; ${readouts}; screen ${changed.toFixed(1)}% changed`
     },
   },
   {
@@ -578,6 +623,28 @@ const CHECKS: readonly Check[] = [
     },
   },
   {
+    name: "times add up",
+    skip: needsRemaining,
+    async run() {
+      const s = state()
+      const [position, total] = (s.time ?? "").split(" of ")
+      const at = clock(position)
+      const duration = clock(total)
+      const elapsed = clock(s.elapsed)
+      // The remaining time opens with a minus sign, U+2212.
+      const remaining = clock(s.remaining?.replace(/^\u2212/, ""))
+      expect(at !== null && duration !== null, `Seek reads "${s.time}" with no time or duration`)
+      expect(s.remaining?.startsWith("\u2212") === true, `the remaining time reads "${s.remaining}" with no minus sign`)
+      expect(elapsed === at, `the elapsed time reads "${s.elapsed}" while Seek reads "${s.time}"`)
+      expect(
+        elapsed !== null && remaining !== null && elapsed + remaining === duration,
+        `"${s.elapsed}" and "${s.remaining}" do not add up to ${duration}s`
+      )
+
+      return `${s.elapsed} and ${s.remaining} of ${duration}s`
+    },
+  },
+  {
     name: "Space on Seek",
     skip: needsSeek,
     async run() {
@@ -658,18 +725,24 @@ const CHECKS: readonly Check[] = [
       ab("focus", REPEAT_CHECKED)
       ab("press", "ArrowRight")
       await closePopups()
-      expect(state().remaining !== null, "found no Remaining time control")
-      press("Remaining time")
-      await Bun.sleep(300)
       // The reload below would remove a stray tooltip before the runner looks for one.
       await noStrayTips()
       expect(await reveal((s) => s.level !== null), "found no Level slider")
       const level = state().level
       await closePopups()
+      // The store writes settings a moment after the last change, and a reload drops a write that is still waiting.
+      const saved = await until(
+        () => parseSettings(evaluate<string | null>(`localStorage.getItem(${JSON.stringify(SETTINGS_KEY)})`)),
+        (stored) => stored?.shuffle === true && stored.repeat === "all",
+        3_000
+      )
+      expect(
+        saved?.shuffle === true && saved.repeat === "all",
+        `the stored settings read shuffle=${saved?.shuffle}, repeat=${saved?.repeat} before the reload`
+      )
       await reload()
 
-      const remaining = (await until(state, (s) => s.remaining?.pressed === "true", 3_000)).remaining
-      expect(remaining?.pressed === "true", "Remaining time is not pressed after reload")
+      await until(state, (s) => s.play !== null, 3_000)
       expect(await reveal((s) => s.mute !== null), "found no Mute control after reload")
       const after = state()
       expect(after.mute === "true", `Mute reads aria-pressed=${after.mute} after reload`)
@@ -681,7 +754,7 @@ const CHECKS: readonly Check[] = [
       expect(state().repeat === "All", `Repeat reads ${state().repeat} after reload, not All`)
       await closePopups()
 
-      return `after reload: time ${remaining.text}, muted, Level ${level}, Shuffle on, Repeat All`
+      return `after reload: muted, Level ${level}, Shuffle on, Repeat All`
     },
   },
   {
