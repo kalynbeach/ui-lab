@@ -13,14 +13,12 @@ import { cn } from "cn"
 
 import { Kbd } from "./kbd"
 
-// Kevelle opens tooltips at once. Pass `shortcut`, like "mod+k", to give the
-// trigger aria-keyshortcuts and let TooltipShortcut show the keys for this
-// platform. The tooltip only shows the keys; useShortcut binds them.
-function Tooltip({
-  delay = 0,
-  ...props
-}: React.ComponentProps<typeof TooltipRoot>) {
-  return <TooltipRoot delay={delay} {...props} />
+// Hover opens a tooltip after UI SDK's delay, and keyboard focus opens it at
+// once. Pass `shortcut`, like "mod+k", to give the trigger aria-keyshortcuts
+// and let TooltipShortcut show the keys for this platform. The tooltip only
+// shows the keys; useShortcut binds them.
+function Tooltip(props: React.ComponentProps<typeof TooltipRoot>) {
+  return <TooltipRoot {...props} />
 }
 
 function TooltipContent({
