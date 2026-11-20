@@ -99,9 +99,9 @@ function resolve(value: string, theme: Theme, seen: string[] = []): Rgba {
   const variable = text.match(/^var\((--[\w-]+)\)$/)
   if (variable) return token(variable[1], theme, seen)
   if (text.startsWith("oklch(")) return oklch(text)
+  if (text === "transparent") return { r: 0, g: 0, b: 0, a: 0 }
   if (text.startsWith("color-mix(")) {
     const [space, first, second] = splitArgs(text.slice(10, -1))
-    if (space !== "in srgb") throw new Error(`unsupported mix space in ${text}`)
     const weight = (part: string) => part.match(/\s([\d.]+)%$/)?.[1]
     const strip = (part: string) => part.replace(/\s[\d.]+%$/, "")
     const p1 = weight(first)
@@ -109,6 +109,11 @@ function resolve(value: string, theme: Theme, seen: string[] = []): Rgba {
     const w1 = p1 ? Number(p1) / 100 : p2 ? 1 - Number(p2) / 100 : 0.5
     const a = resolve(strip(first), theme, seen)
     const b = resolve(strip(second), theme, seen)
+    // Premultiplied mixing against transparent keeps the color and scales its
+    // alpha in any space, so only that oklch case reduces to srgb's math.
+    if (space !== "in srgb" && !(space === "in oklch" && strip(second) === "transparent")) {
+      throw new Error(`unsupported mix in ${text}`)
+    }
     const alpha = a.a * w1 + b.a * (1 - w1)
     const channel = (x: number, y: number) =>
       alpha === 0 ? 0 : (x * a.a * w1 + y * b.a * (1 - w1)) / alpha
@@ -174,10 +179,11 @@ const pairs: Pair[] = [
   text("primary-foreground", "sheen:primary", "primary key, selected toggle"),
   text("primary-foreground", "sheen:primary-hover", "primary key, hovered"),
   text("secondary-foreground", "sheen:secondary", "secondary key"),
-  text("secondary-foreground", "sheen:alloy-glint+secondary", "secondary key, hovered"),
+  text("secondary-foreground", "sheen:alloy-wash+secondary", "secondary key, hovered"),
   text("secondary-foreground", "secondary-hover", "secondary hover role"),
   text("foreground", "sheen:background", "outline key"),
-  text("foreground", "sheen:alloy-glint+background", "outline key, hovered"),
+  text("foreground", "sheen:alloy-wash+background", "outline or ghost key, hovered"),
+  text("foreground", "sheen:alloy-wash+card", "ghost key on a card, hovered"),
   text("destructive-foreground", "sheen:destructive", "destructive key"),
   text("destructive-foreground", "sheen:destructive-hover", "destructive key, hovered"),
   edge("input", "background", "control edge"),

@@ -62,7 +62,7 @@ function ColorSchemeControl() {
         <SegmentedControlItem
           key={scheme.value}
           value={scheme.value}
-          className="-ml-px h-7 border border-border bg-secondary px-2 type-label text-secondary-foreground alloy-raised first:ml-0 focus-visible:outline-hidden data-unchecked:hover:z-10 data-unchecked:hover:border-input data-unchecked:hover:alloy-lit focus-visible:z-20 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring data-checked:z-10 data-checked:alloy-selected"
+          className="-ml-px h-7 border border-border bg-secondary px-2 type-label text-secondary-foreground alloy-raised first:ml-0 transition-[color,background-color] focus-visible:outline-hidden data-unchecked:hover:z-10 data-unchecked:hover:alloy-hover focus-visible:z-20 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:aura-focus data-checked:z-10 data-checked:alloy-selected"
         >
           {scheme.label}
         </SegmentedControlItem>
