@@ -49,7 +49,7 @@ import {
   type PlayedDensity,
 } from "./peaks"
 import { usePlayhead } from "./playhead"
-import { STATUS_VIEW } from "./status-view"
+import { STATUS_VIEW, timesKnown } from "./status-view"
 
 type Styled = { readonly className?: string }
 
@@ -256,7 +256,7 @@ export function WavePlayerSeek({
             <SliderThumbPart
               aria-label="Seek"
               {...{ [SEEK_THUMB]: "" }}
-              className="h-full w-0.5 bg-signal text-signal opacity-0 ring-ring transition-opacity duration-(--duration-small) group-hover/seek:opacity-100 has-focus-visible:opacity-100 has-focus-visible:ring-2 data-dragging:opacity-100 data-disabled:hidden dark:has-focus-visible:glow dark:data-dragging:glow"
+              className="h-full w-0.5 bg-signal text-signal opacity-0 ring-ring transition-opacity duration-(--duration-small) group-hover/seek:opacity-100 has-focus-visible:opacity-100 has-focus-visible:ring-2 has-focus-visible:outline-hidden has-focus-visible:aura-focus has-focus-visible:transition-none data-dragging:opacity-100 data-disabled:hidden dark:has-focus-visible:glow dark:data-dragging:glow"
             />
           </SliderTrack>
         ) : (
@@ -373,7 +373,7 @@ const wholeSeconds = (position: number) => Math.floor(position)
 
 export function WavePlayerTime({ className }: Styled) {
   const store = usePlayerStore("WavePlayerTime")
-  const known = usePlayer((state) => STATUS_VIEW[state.status.kind].times)
+  const known = usePlayer(timesKnown)
   const duration = usePlayer((state) => state.current?.track.duration ?? null)
   const remaining = usePlayer((state) => state.settings.time === "remaining")
   const second = usePlayhead(store.playhead, wholeSeconds)
@@ -398,8 +398,10 @@ export function WavePlayerTime({ className }: Styled) {
             onPressedChange={(pressed) =>
               store.send({ type: "set-time", time: pressed ? "remaining" : "elapsed" })
             }
+            // An unknown time is not a live reading, so --:-- stays muted.
             className={cn(
-              "type-pixel tabular-nums not-data-pressed:dark:text-signal-bright",
+              "type-pixel tabular-nums",
+              known ? "not-data-pressed:dark:text-signal-bright" : "text-muted-foreground",
               className
             )}
           />
@@ -417,7 +419,7 @@ export function WavePlayerTime({ className }: Styled) {
 
 export function WavePlayerProgress({ className }: Styled) {
   const store = usePlayerStore("WavePlayerProgress")
-  const known = usePlayer((state) => STATUS_VIEW[state.status.kind].times)
+  const known = usePlayer(timesKnown)
   const duration = usePlayer((state) => state.current?.track.duration ?? null)
   const box = React.useRef<HTMLDivElement>(null)
   const width = useWidth(box, 400)

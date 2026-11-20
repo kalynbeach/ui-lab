@@ -137,7 +137,10 @@ export function WavePlayerFrame({
         event.preventDefault()
         store.send({ type: "toggle" })
       }}
-      className={cn("outline-none", className)}
+      className={cn(
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:aura-focus",
+        className
+      )}
     >
       {children}
     </section>

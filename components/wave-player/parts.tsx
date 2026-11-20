@@ -45,7 +45,7 @@ import { Waveform } from "@/components/waveform/waveform"
 import { usePlayer, usePlayerSend } from "./context"
 import { formatClock, formatOrdinal } from "./format"
 import type { Repeat } from "./settings"
-import { FAILURE, STATUS_VIEW, type StatusView } from "./status-view"
+import { FAILURE, STATUS_VIEW, timesKnown, type StatusView } from "./status-view"
 
 type Styled = { readonly className?: string }
 
@@ -120,7 +120,7 @@ export function WavePlayerStatus({ className }: Styled) {
 
 export function WavePlayerDuration({ className }: Styled) {
   const duration = usePlayer((state) =>
-    STATUS_VIEW[state.status.kind].times ? (state.current?.track.duration ?? null) : null
+    timesKnown(state) ? (state.current?.track.duration ?? null) : null
   )
 
   return (
@@ -141,9 +141,10 @@ export function WavePlayerIndex({ className }: Styled) {
   )
 }
 
+// Under a coarse pointer every key grows to 44px.
 const KEY = {
-  default: { step: "size-9", play: "h-9 w-11" },
-  sm: { step: "size-8", play: "h-8 w-10" },
+  default: { step: "size-9 pointer-coarse:size-11", play: "h-9 w-11 pointer-coarse:h-11" },
+  sm: { step: "size-8 pointer-coarse:size-11", play: "h-8 w-10 pointer-coarse:size-11" },
 } as const satisfies Record<PartSize, { step: string; play: string }>
 
 function Glyph({ glyph }: { readonly glyph: StatusView["glyph"] }) {
@@ -161,7 +162,9 @@ function Glyph({ glyph }: { readonly glyph: StatusView["glyph"] }) {
 
 // Play keeps its name in every status, so a person or an agent finds the same
 // control. Pressed says it plays, and the description says what pressing does
-// when that differs.
+// when that differs. A failure leaves Previous and Next on, so a person can
+// move on, and turns Play off where trying again can't help, such as No Web
+// Audio.
 export function WavePlayerTransport({
   size = "default",
   className,
@@ -170,8 +173,23 @@ export function WavePlayerTransport({
   const kind = usePlayer((state) => state.status.kind)
   const empty = usePlayer((state) => state.current === null)
   const canNext = usePlayer((state) => state.canNext)
+  const stuck = usePlayer(
+    (state) => state.status.kind === "failed" && !FAILURE[state.status.reason].retry
+  )
   const view = STATUS_VIEW[kind]
   const description = React.useId()
+  const playDisabled = empty || stuck
+  const play = React.useRef<HTMLButtonElement>(null)
+
+  // A disabled button can't hold focus, and the browser would drop it to the
+  // page. Right after the commit that turns Play off, focus is still on it,
+  // so it goes to the player's frame, where Space and the letter keys work.
+  React.useLayoutEffect(() => {
+    const key = play.current
+
+    if (playDisabled && key && document.activeElement === key)
+      key.closest<HTMLElement>('[data-slot="wave-player"]')?.focus()
+  }, [playDisabled])
 
   return (
     <Toolbar
@@ -201,8 +219,9 @@ export function WavePlayerTransport({
           render={
             <TogglePart
               aria-label="Play"
-              aria-describedby={view.description ? description : undefined}
-              disabled={empty}
+              ref={play}
+              aria-describedby={view.description && !stuck ? description : undefined}
+              disabled={playDisabled}
               pressed={view.pressed}
               onPressedChange={() => send({ type: "toggle" })}
               className={cn(buttonVariants({ variant: "default" }), KEY[size].play)}
@@ -216,7 +235,7 @@ export function WavePlayerTransport({
           <TooltipShortcut />
         </TooltipContent>
       </Tooltip>
-      {view.description ? (
+      {view.description && !stuck ? (
         <span id={description} hidden>
           {view.description}
         </span>

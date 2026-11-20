@@ -92,7 +92,10 @@ function fakeStrip(): FakeStrip {
 
 const RUNNING: StationSnapshot = { state: "running", sampleRate: 48_000, context: 1 }
 
-export function testPlayer(tracks: readonly WavePlayerTrack[] = TEST_TRACKS) {
+export function testPlayer(
+  tracks: readonly WavePlayerTrack[] = TEST_TRACKS,
+  { support = "supported" }: { readonly support?: "supported" | "unsupported" } = {}
+) {
   const strips: FakeStrip[] = []
   const station: AudioStation = {
     getSnapshot: () => RUNNING,
@@ -111,7 +114,7 @@ export function testPlayer(tracks: readonly WavePlayerTrack[] = TEST_TRACKS) {
 
   const env: PlayerEnv = {
     station: () => station,
-    support: () => "supported",
+    support: () => support,
     mediaSession: () => null,
     resolve: (src) => new URL(src, "https://site.test/"),
     probeDuration: () => new Promise<Seconds | null>(() => {}),

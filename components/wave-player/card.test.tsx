@@ -398,6 +398,56 @@ test("a failed track shows the fault, unknown times, a disabled Seek, and what P
   expect(document.querySelector("[aria-live=polite]")?.textContent).toBe("Couldn't load Low tide.")
 })
 
+test("no status badge shows while idle, playing, or paused", async () => {
+  const player = await renderCard()
+  const badge = () => document.querySelector('[data-slot="badge"]')
+
+  expect(snapshot(player).status.kind).toBe("idle")
+  expect(badge()).toBeNull()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  expect(badge()?.textContent).toBe("LOADING")
+
+  await act(() => player.load())
+  expect(snapshot(player).status.kind).toBe("playing")
+  expect(badge()).toBeNull()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  act(() => player.strips[0].emit({ kind: "file", name: "a.mp3", duration: null, playback: "paused" }))
+  expect(snapshot(player).status.kind).toBe("paused")
+  expect(badge()).toBeNull()
+})
+
+test("with no tracks, every time reads --:--", async () => {
+  await renderCard(<WavePlayerCard />, [])
+
+  expect(screen.getByRole("button", { name: "Remaining time" }).textContent).toBe("--:--")
+  expect(screen.getAllByText("--:--")).toHaveLength(2)
+})
+
+test("after No Web Audio, Play turns off and hands its focus to the player", async () => {
+  const player = testPlayer(TEST_TRACKS, { support: "unsupported" })
+  render(
+    <WavePlayerStore store={player.store}>
+      <WavePlayerCard />
+    </WavePlayerStore>
+  )
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  const play = screen.getByRole("button", { name: "Play" })
+  await userEvent.click(play)
+
+  expect(snapshot(player).status).toEqual({ kind: "failed", reason: "unsupported" })
+  expect(play.hasAttribute("disabled") || play.getAttribute("aria-disabled") === "true").toBe(true)
+  expect(play.hasAttribute("aria-describedby")).toBe(false)
+  expect(document.activeElement).toBe(screen.getByRole("region", { name: "WavePlayer" }))
+
+  const next = screen.getByRole("button", { name: "Next track" })
+  expect(next.hasAttribute("disabled") || next.getAttribute("aria-disabled") === "true").toBe(false)
+})
+
 test("two frames on one store share the keys without a warning", async () => {
   const player = await renderCard(
     <>
