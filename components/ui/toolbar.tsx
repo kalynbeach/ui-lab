@@ -22,7 +22,7 @@ function Toolbar({
   return (
     <ToolbarPart
       className={cn(
-        "flex w-fit items-center gap-1 bg-card p-1 text-card-foreground shadow-sm ring-1 ring-foreground/10 data-[orientation=vertical]:flex-col",
+        "flex w-fit items-center gap-1 bg-card p-1 text-card-foreground shadow-sm ring-1 ring-foreground/10 forced-colors:outline-1 data-[orientation=vertical]:flex-col",
         className
       )}
       {...props}

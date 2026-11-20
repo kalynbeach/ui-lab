@@ -14,23 +14,24 @@ const hitArea =
   "relative pointer-coarse:after:absolute pointer-coarse:after:inset-[min(0px,calc(50%_-_22px))] in-data-[slot=toolbar]:pointer-coarse:min-w-11 in-data-[slot=toggle-group]:pointer-coarse:min-w-11 in-data-[slot=segmented-control]:pointer-coarse:min-w-11 in-[[data-slot=toolbar][data-orientation=vertical]]:pointer-coarse:min-h-11 in-[[data-slot=toggle-group][data-orientation=vertical]]:pointer-coarse:min-h-11 in-[[data-slot=segmented-control][data-orientation=vertical]]:pointer-coarse:min-h-11"
 
 const key = cn(
-  "inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,translate] select-none",
+  "inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,translate] select-none",
   // The ring is a box shadow, which forced colors removes, so focus also keeps an outline there.
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:aura-focus",
   "active:not-aria-disabled:not-data-pending:not-aria-[haspopup]:translate-y-px",
   "data-disabled:cursor-not-allowed data-disabled:opacity-50 data-pending:cursor-progress",
-  "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+  "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:not-focus-visible:ring-destructive/20 dark:aria-invalid:not-focus-visible:ring-destructive/40",
   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   hitArea
 )
 
 const variants = {
+  // The 1px frame is the fill itself, so it fades with the fill on hover.
   default:
-    "border-primary bg-primary alloy-raised text-primary-foreground not-data-disabled:hover:border-primary-hover not-data-disabled:hover:bg-primary-hover",
+    "border-transparent bg-primary alloy-raised bg-clip-border bg-no-repeat bg-origin-padding text-primary-foreground not-data-disabled:hover:bg-primary-hover aria-expanded:bg-primary-hover",
   secondary:
-    "border-border bg-secondary alloy-raised text-secondary-foreground not-data-disabled:hover:border-input not-data-disabled:hover:alloy-hover aria-expanded:border-input aria-expanded:alloy-hover",
+    "border-border bg-secondary alloy-raised text-secondary-foreground not-data-disabled:hover:alloy-hover aria-expanded:alloy-hover",
   ghost:
-    "not-data-disabled:hover:bg-muted not-data-disabled:hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+    "not-data-disabled:hover:alloy-ghost not-data-disabled:hover:text-foreground aria-expanded:alloy-ghost aria-expanded:text-foreground",
 } as const
 
 const iconPending = "data-pending:[&>svg:not([data-slot=spinner])]:hidden"

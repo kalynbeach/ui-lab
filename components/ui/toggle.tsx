@@ -12,12 +12,12 @@ import { hitArea } from "./button"
 import "./ui.css"
 
 const key = cn(
-  "inline-flex shrink-0 items-center justify-center gap-1 border alloy-raised bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,translate] select-none",
-  "not-data-pressed:not-data-checked:not-data-disabled:hover:border-input not-data-pressed:not-data-checked:not-data-disabled:hover:alloy-hover data-pressed:alloy-selected",
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+  "inline-flex shrink-0 items-center justify-center gap-1 border alloy-raised bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color] select-none",
+  "not-data-pressed:not-data-checked:not-data-disabled:hover:alloy-hover data-pressed:alloy-selected",
+  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:aura-focus",
   "active:not-aria-disabled:not-aria-[haspopup]:translate-y-px",
   "data-disabled:cursor-not-allowed data-disabled:opacity-50",
-  "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+  "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:not-focus-visible:ring-destructive/20 dark:aria-invalid:not-focus-visible:ring-destructive/40",
   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   hitArea
 )
