@@ -219,6 +219,25 @@ describe("WavePlayerPlaylist", () => {
     expect(row("Undertow").getAttribute("aria-current")).toBe("true")
   })
 
+  test("a failed current row prints --:-- for its time, and the other rows keep theirs", () => {
+    const { store, emit, row } = setup([
+      { id: "a", title: "Low tide", src: "/a.mp3", duration: 84 },
+      { id: "b", title: "Undertow", src: "/b.mp3", duration: 61 },
+    ])
+
+    act(() => store.send({ type: "set-muted", muted: true }))
+    act(() => store.send({ type: "play-track", id: "a" }))
+    expect(row("Low tide").textContent).toContain("01:24")
+    expect(row("Undertow").textContent).toContain("01:01")
+
+    emit({ kind: "failed", source: "file", error: { kind: "unknown", message: "404" } })
+    expect(store.getSnapshot().status.kind).toBe("failed")
+    expect(row("Low tide").textContent).toContain("--:--")
+    expect(row("Low tide").textContent).not.toContain("01:24")
+    expect(row("Undertow").textContent).toContain("01:01")
+    expect(row("Undertow").textContent).not.toContain("--:--")
+  })
+
   test("an agent finds rows by title, then selects and plays them", async () => {
     const { store, plays } = setup()
 

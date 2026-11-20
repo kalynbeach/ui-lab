@@ -11,6 +11,7 @@ import { formatClock, formatCount } from "./format"
 import type { PlaylistItem } from "./playlist-grid"
 import { PlaylistGrid } from "./playlist-parts"
 import type { PlayerState } from "./model"
+import { timesKnown } from "./status-view"
 
 const NAME = "WavePlayerPlaylist"
 
@@ -32,6 +33,7 @@ export function WavePlayerPlaylist({
   const selected = usePlayer(selectSelected, NAME)
   const current = usePlayer(selectCurrent, NAME)
   const playing = usePlayer(selectPlaying, NAME)
+  const known = usePlayer(timesKnown, NAME)
   const headingId = React.useId()
 
   React.useEffect(() => store.retain("durations"), [store])
@@ -52,7 +54,7 @@ export function WavePlayerPlaylist({
   return (
     <div className={cn("flex w-full flex-col", className)}>
       <div className="flex min-h-13 items-center gap-2 pt-0.5 pr-3 pl-4">
-        <div id={headingId} className="type-label text-foreground">
+        <div id={headingId} className="type-heading-3 text-foreground">
           {heading}
         </div>
         <span
@@ -90,8 +92,8 @@ export function WavePlayerPlaylist({
             >
               <PlaylistGrid.Track
                 className={cn(
-                  "flex min-h-10 cursor-pointer items-center gap-3 py-2 pr-2 pl-4 outline-none pointer-coarse:min-h-11",
-                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  "flex min-h-10 cursor-pointer items-center gap-3 py-2 pr-2 pl-4 pointer-coarse:min-h-11",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:ring-inset focus-visible:aura-focus"
                 )}
               >
                 <span className="min-w-5 shrink-0 type-pixel text-muted-foreground tabular-nums group-data-current/row:text-signal">
@@ -111,8 +113,14 @@ export function WavePlayerPlaylist({
                   aria-hidden="true"
                   className="led hidden shrink-0 group-data-playing/row:block"
                 />
-                <span className="shrink-0 type-pixel text-muted-foreground tabular-nums group-data-current/row:text-signal">
-                  {formatClock(track.duration)}
+                {/* After a failure the current row's time is unknown, so it prints --:-- and stays muted. */}
+                <span
+                  className={cn(
+                    "shrink-0 type-pixel text-muted-foreground tabular-nums",
+                    known && "group-data-current/row:text-signal"
+                  )}
+                >
+                  {formatClock(track.id === current && !known ? null : track.duration)}
                 </span>
               </PlaylistGrid.Track>
               <PlaylistGrid.PlayCell
