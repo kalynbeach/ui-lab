@@ -12,6 +12,7 @@ import {
 const audio: ItemSpec = { item: "audio", dir: "lib/audio" }
 const waveform: ItemSpec = { item: "waveform", dir: "components/waveform", only: ["engine.ts"] }
 const core: ItemSpec = { item: "wave-player", dir: "components/wave-player", seed: true, only: ["model.ts"] }
+const marquee: ItemSpec = { item: "marquee", dir: "components/ui", only: ["marquee.tsx"], shared: true }
 const specs = [audio, waveform, core]
 
 describe("targetOf", () => {
@@ -35,6 +36,21 @@ describe("targetOf", () => {
 
   test("refuses a file with no target", () => {
     expect(() => targetOf(audio, { path: "r/feed.ts" })).toThrow(/no target/)
+  })
+
+  test("places a ui part, which names no target, in the ui directory", () => {
+    expect(targetOf(marquee, { path: "registry/kevelle/ui/marquee.tsx" })).toBe("components/ui/marquee.tsx")
+  })
+
+  test.each(["registry/kevelle/ui/../escape.tsx", "registry/kevelle/ui/../../escape.tsx"])(
+    "refuses the ui part %s",
+    (path) => {
+      expect(() => targetOf(marquee, { path })).toThrow(/refusing target/)
+    }
+  )
+
+  test("refuses a ui part for an item with another directory", () => {
+    expect(() => targetOf(audio, { path: "registry/kevelle/ui/marquee.tsx" })).toThrow(/refusing target/)
   })
 })
 
@@ -138,6 +154,31 @@ describe("auditManifest", () => {
   test("reports an unlisted file in a pinned directory", () => {
     const extra = { ...disk, listing: { ...disk.listing, audio: ["lib/audio/feed.ts", "lib/audio/extra.ts"] } }
     expect(auditManifest(manifest, extra, specs)).toEqual(["lib/audio/extra.ts: on disk but not in the manifest"])
+  })
+
+  describe("in a directory shared with this repo's files", () => {
+    const row = { item: "marquee", source: "r/marquee.tsx", target: "components/ui/marquee.tsx", sha256: "eee", seed: false }
+    const shared: Manifest = { ...manifest, files: [...manifest.files, row] }
+    const sharedDisk = {
+      listing: { ...disk.listing, marquee: ["components/ui/marquee.tsx", "components/ui/button.tsx"] },
+      hashOf: (target: string) => (target === row.target ? "eee" : disk.hashOf(target)),
+    }
+    const sharedSpecs = [...specs, marquee]
+
+    test("passes over the files the manifest does not list", () => {
+      expect(auditManifest(shared, sharedDisk, sharedSpecs)).toEqual([])
+    })
+
+    test("reports the pinned file when its content changed", () => {
+      const drifted = { ...sharedDisk, hashOf: (target: string) => (target === row.target ? "zzz" : disk.hashOf(target)) }
+      expect(auditManifest(shared, drifted, sharedSpecs)).toEqual([
+        "components/ui/marquee.tsx: differs from the registry copy, or is missing",
+      ])
+    })
+
+    test("reports the pinned file when its manifest row was removed", () => {
+      expect(auditManifest(manifest, sharedDisk, sharedSpecs)).toEqual(["components/ui/marquee.tsx: not in the manifest"])
+    })
   })
 
   test("reports a row that points outside its item's directory", () => {

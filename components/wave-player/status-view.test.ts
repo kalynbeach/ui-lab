@@ -74,16 +74,15 @@ describe("STATUS_VIEW", () => {
     expect(STATUS_VIEW[kind].label).toBe(label)
   })
 
-  test.each<[StatusKind, string | null, string | null]>([
-    ["idle", null, null],
-    ["loading", "LOADING", "spinner"],
-    ["playing", null, null],
-    ["paused", null, null],
-    ["blocked", "HOLD", null],
-    ["ended", "ENDED", null],
-    ["failed", "FAULT", "failure"],
-  ])("%s shows badge %s and overlay %s", (kind, badge, overlay) => {
-    expect(STATUS_VIEW[kind].badge?.label ?? null).toBe(badge)
+  test.each<[StatusKind, string | null]>([
+    ["idle", null],
+    ["loading", "spinner"],
+    ["playing", null],
+    ["paused", null],
+    ["blocked", null],
+    ["ended", null],
+    ["failed", "failure"],
+  ])("%s shows overlay %s", (kind, overlay) => {
     expect(STATUS_VIEW[kind].overlay).toBe(overlay)
   })
 

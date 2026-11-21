@@ -30,6 +30,11 @@ export type ItemSpec = {
   /** File basenames to take. Omit to take every file of the item. */
   readonly only?: readonly string[]
   readonly seed?: boolean
+  /**
+   * The directory also holds files this repo owns, so --check passes over
+   * files there that the manifest does not list. Name the item's files in `only`.
+   */
+  readonly shared?: boolean
 }
 
 export const ITEMS: readonly ItemSpec[] = [
@@ -61,6 +66,7 @@ export const ITEMS: readonly ItemSpec[] = [
       "store.ts",
     ],
   },
+  { item: "marquee", dir: "components/ui", only: ["marquee.tsx"], shared: true },
 ]
 
 const IMPORT_REWRITES: readonly (readonly [string, string])[] = [
@@ -68,6 +74,9 @@ const IMPORT_REWRITES: readonly (readonly [string, string])[] = [
   ["@/registry/kevelle/ui/", "@/components/ui/"],
   ["@/registry/kevelle/blocks/", "@/components/"],
 ]
+
+/** A registry ui part names no target. The shadcn CLI places it by type, in the app's ui directory. */
+const UI_SOURCE = "registry/kevelle/ui/"
 
 type RegistryFile = { path: string; target?: string; content: string }
 type RegistryItem = { name: string; files: RegistryFile[] }
@@ -90,11 +99,14 @@ const isTest = (path: string) => /\.test\.tsx?$/.test(path)
  * so anything that resolves outside the item's own directory is refused.
  */
 export function targetOf(spec: ItemSpec, file: Pick<RegistryFile, "path" | "target">): string {
-  if (!file.target) throw new Error(`${file.path} has no target`)
-  const mapped = file.target.replace(/^@lib\//, "lib/").replace(/^@components\//, "components/")
+  const named =
+    file.target ??
+    (file.path.startsWith(UI_SOURCE) ? `@components/ui/${file.path.slice(UI_SOURCE.length)}` : undefined)
+  if (!named) throw new Error(`${file.path} has no target`)
+  const mapped = named.replace(/^@lib\//, "lib/").replace(/^@components\//, "components/")
   const target = posix.normalize(mapped)
   if (mapped.includes("\\") || !target.startsWith(`${spec.dir}/`)) {
-    throw new Error(`${spec.item}: refusing target ${file.target}, outside ${spec.dir}/`)
+    throw new Error(`${spec.item}: refusing target ${named}, outside ${spec.dir}/`)
   }
   return target
 }
@@ -145,6 +157,7 @@ export function auditManifest(
     for (const name of spec.only ?? []) {
       if (!listed.has(`${spec.dir}/${name}`)) problems.push(`${spec.dir}/${name}: not in the manifest`)
     }
+    if (spec.shared) continue
     for (const path of disk.listing[spec.item] ?? []) {
       if (!isTest(path) && !listed.has(path)) problems.push(`${path}: on disk but not in the manifest`)
     }

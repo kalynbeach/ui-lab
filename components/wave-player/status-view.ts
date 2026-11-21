@@ -11,12 +11,6 @@ import type {
   WavePlayerStatus,
 } from "./model"
 
-/** A status Badge: a caps label in the label face, as every block's status badge is. */
-export type StatusBadge = {
-  readonly label: string
-  readonly variant: "secondary" | "outline" | "warning" | "destructive"
-}
-
 /** What the screen's figure does. kevelle/waveform's WaveformHold; tools/wave-player/look.test.ts pins the two both ways. */
 export type WavePlayerHold = "frozen" | "still"
 
@@ -33,11 +27,10 @@ export type StatusView = {
   readonly started: boolean
   /** Media Session's playbackState. */
   readonly session: MediaSessionPlaybackState
-  /** Null where the transport already says it all. */
-  readonly badge: StatusBadge | null
   /**
-   * What covers the screen slot: a spinner while the track loads, or the
-   * failure's Alert. The slot's content stays mounted under it.
+   * What covers the screen slot: a spinner while the track loads, and after
+   * a failure the card's Alert or the mini player's and the bar's warning
+   * mark. The slot's content stays mounted under it.
    */
   readonly overlay: "spinner" | "failure" | null
   /**
@@ -56,7 +49,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: false,
     session: "none",
-    badge: null,
     overlay: null,
     hold: "still",
   },
@@ -67,7 +59,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: false,
     session: "playing",
-    badge: { label: "LOADING", variant: "secondary" },
     overlay: "spinner",
     hold: "still",
   },
@@ -78,7 +69,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: true,
     session: "playing",
-    badge: null,
     overlay: null,
     hold: null,
   },
@@ -89,7 +79,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: true,
     session: "paused",
-    badge: null,
     overlay: null,
     hold: "frozen",
   },
@@ -100,7 +89,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: false,
     session: "paused",
-    badge: { label: "HOLD", variant: "warning" },
     overlay: null,
     hold: "frozen",
   },
@@ -111,7 +99,6 @@ export const STATUS_VIEW = {
     seekable: true,
     started: true,
     session: "paused",
-    badge: { label: "ENDED", variant: "outline" },
     overlay: null,
     hold: "still",
   },
@@ -122,7 +109,6 @@ export const STATUS_VIEW = {
     seekable: false,
     started: false,
     session: "none",
-    badge: { label: "FAULT", variant: "destructive" },
     overlay: "failure",
     hold: "still",
   },
@@ -133,7 +119,7 @@ export function timesKnown(state: PlayerState): boolean {
   return state.current !== null && STATUS_VIEW[state.status.kind].times
 }
 
-/** The Alert over a failed track's screen. `retry` turns the transport's center key to Retry where pressing it can help. */
+/** The card's Alert over a failed track's screen. `retry` turns the transport's center key to Retry where pressing it can help. */
 export const FAILURE = {
   load: {
     title: "Couldn't load the track",

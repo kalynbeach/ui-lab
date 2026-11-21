@@ -2,6 +2,13 @@
   "registry": "https://registry.kkb.systems/r/kevelle",
   "files": [
     {
+      "item": "marquee",
+      "source": "registry/kevelle/ui/marquee.tsx",
+      "target": "components/ui/marquee.tsx",
+      "sha256": "7ce8571f666e22fb8f9b5d560640169eac3d76d213aa3c03981fe044b8c645b2",
+      "seed": false
+    },
+    {
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/dock.ts",
       "target": "components/wave-player/dock.ts",
@@ -82,7 +89,7 @@
       "item": "wave-player",
       "source": "registry/kevelle/blocks/wave-player/status-view.ts",
       "target": "components/wave-player/status-view.ts",
-      "sha256": "175d13c2281ee381d07ddf52ee621a44605f678cada10ff032d8b9a7fefc5ab9",
+      "sha256": "1b7863d8e03f357ae628c6759a540d262bf755b5ccad7cc347a8cc4614bf375b",
       "seed": true
     },
     {
