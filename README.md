@@ -52,13 +52,15 @@ The variants are `WavePlayerCard`, `WavePlayerMini`, `WavePlayerBar`, and `WaveP
 
 | File | Parts |
 | --- | --- |
-| `parts.tsx` | `WavePlayerScreen`, `WavePlayerTitle`, `WavePlayerByline`, `WavePlayerStatus`, `WavePlayerDuration`, `WavePlayerIndex`, `WavePlayerTransport`, `WavePlayerShuffle`, `WavePlayerRepeat`, `WavePlayerVolume`, `WavePlayerLevel`, `WavePlayerMute`, `WavePlayerSettings` |
+| `parts.tsx` | `WavePlayerScreen`, `WavePlayerTitle`, `WavePlayerByline`, `WavePlayerIndex`, `WavePlayerTransport`, `WavePlayerShuffle`, `WavePlayerRepeat`, `WavePlayerVolume`, `WavePlayerLevel`, `WavePlayerMute`, `WavePlayerSettings` |
 | `seek.tsx` | `WavePlayerSeek` (a waveform or a line), `WavePlayerElapsed`, `WavePlayerRemaining`, `WavePlayerClock`, `WavePlayerProgress` |
 | `playlist-view.tsx` | `WavePlayerPlaylist`, on the `playlistGrid` primitive in `playlist-grid.ts` |
 | `frame.tsx` | `WavePlayerFrame`, the region that every variant renders inside. It owns the keyboard shortcuts. |
 | `agent.tsx` | `WavePlayerAgent`, the agent bridge |
 
 The card keeps Previous, Play, and Next centered, with Shuffle and Volume on their left and Repeat on their right. Under the waveform it prints the elapsed time on the left and the remaining time on the right. The mini and the bar print the elapsed time over the duration. Every time readout prints `--:--` until the player knows the time. After a failure that trying again can't fix, such as a browser with no Web Audio, Play turns off and Previous and Next stay on.
+
+Every title stays on one line, so no title changes a view's or a row's height. A long title rests on an ellipsis. It scrolls slowly on repeat while its track plays, or while its player or its Playlist row is hovered or holds keyboard focus. Under reduced motion it stays on the ellipsis. No view shows a status badge. Play's glyph, the spinner over the screen, the failure message, and the live region say the status.
 
 The core has no React in it. `model.ts` decides what each command does, `store.ts` runs it against the browser, and `settings.ts` stores the settings in `localStorage` under the key `wave-player`. The store writes a change 250 ms after the last one, and at once when the page is hidden or goes away.
 
@@ -88,7 +90,7 @@ The bridge leaves a person's own files out of its snapshot, its item lists, and 
 
 ### Sound
 
-WavePlayer plays through Kalyn's Kevelle libs. `lib/audio` plays each track through the page's Web Audio graph and keeps a feed of its samples. `lib/scope` draws that feed as a figure on a `lib/screen` screen, which renders with WebGPU, or WebGL2 where WebGPU is missing. `components/waveform` puts that screen on the page. When several players share a page, the one that played last answers the system's media keys. `tools/kevelle/vendor.ts` installs these libs from Kalyn's registry and pins them. Don't edit them here. [tools/kevelle/README.md](tools/kevelle/README.md) explains how to update them.
+WavePlayer plays through Kalyn's Kevelle libs. `lib/audio` plays each track through the page's Web Audio graph and keeps a feed of its samples. `lib/scope` draws that feed as a figure on a `lib/screen` screen, which renders with WebGPU, or WebGL2 where WebGPU is missing. `components/waveform` puts that screen on the page. When several players share a page, the one that played last answers the system's media keys. `tools/kevelle/vendor.ts` installs these libs from Kalyn's registry and pins them, along with `components/ui/marquee.tsx`, the Kevelle part that sets each title. Don't edit them here. [tools/kevelle/README.md](tools/kevelle/README.md) explains how to update them.
 
 ## Checks
 
