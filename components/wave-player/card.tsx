@@ -5,12 +5,10 @@ import { cn } from "cn"
 import { WavePlayerFrame } from "./frame"
 import {
   WavePlayerByline,
-  WavePlayerDuration,
   WavePlayerIndex,
   WavePlayerRepeat,
   WavePlayerScreen,
   WavePlayerShuffle,
-  WavePlayerStatus,
   WavePlayerTitle,
   WavePlayerTransport,
   WavePlayerVolume,
@@ -46,13 +44,7 @@ export function WavePlayerCard({ className }: { readonly className?: string }) {
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <WavePlayerTitle className="pt-0.5" />
-        <div className="flex min-h-6 shrink-0 items-center gap-2">
-          <WavePlayerStatus />
-          <WavePlayerDuration />
-        </div>
-      </div>
+      <WavePlayerTitle className="min-h-6 pt-0.5" />
       <WavePlayerScreen className="w-full" />
       <div className="flex min-h-4 items-start justify-between gap-3">
         <WavePlayerByline />

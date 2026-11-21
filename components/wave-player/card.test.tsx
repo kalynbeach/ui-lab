@@ -9,7 +9,7 @@ import { WavePlayerCard } from "./card"
 import { WavePlayerFrame } from "./frame"
 import { WavePlayerScreen, WavePlayerSettings, WavePlayerTransport } from "./parts"
 import { WavePlayerClock, WavePlayerProgress, WavePlayerSeek } from "./seek"
-import { TEST_TRACKS, testPlayer } from "./testing"
+import { shownText, TEST_TRACKS, testPlayer } from "./testing"
 import { WavePlayerStore } from "./wave-player"
 
 const agent = createAgent()
@@ -61,13 +61,13 @@ const snapshot = (player: ReturnType<typeof testPlayer>) => player.store.getSnap
 const seek = () => screen.getByRole("slider", { name: "Seek" })
 const elapsed = () => document.querySelector('[data-slot="wave-player-elapsed"]')?.textContent
 const remaining = () => document.querySelector('[data-slot="wave-player-remaining"]')?.textContent
+const marquee = () => document.querySelector('[data-slot="marquee"]')
 
 test("each control is named and sends its command", async () => {
   const player = await renderCard()
   const user = userEvent.setup()
 
-  expect(screen.getByRole("region", { name: "WavePlayer" })).toBeTruthy()
-  expect(screen.getByText("Low tide")).toBeTruthy()
+  expect(shownText(screen.getByRole("region", { name: "WavePlayer" }))).toContain("Low tide")
   expect(screen.getByText("Kevelle · Samples")).toBeTruthy()
 
   await user.click(screen.getByRole("button", { name: "Play" }))
@@ -379,7 +379,7 @@ test("the letter keys send their commands while the player holds focus", async (
   expect(snapshot(player).current?.track.title).not.toBe("Low tide")
 })
 
-test("a failed track shows the fault, unknown times, a disabled Seek, and what Play does", async () => {
+test("a failed track shows the failure, unknown times, a disabled Seek, and what Play does", async () => {
   const player = await renderCard()
 
   await userEvent.click(screen.getByRole("button", { name: "Play" }))
@@ -388,7 +388,6 @@ test("a failed track shows the fault, unknown times, a disabled Seek, and what P
   )
 
   expect(snapshot(player).status).toEqual({ kind: "failed", reason: "load" })
-  expect(screen.getByText("FAULT")).toBeTruthy()
   expect(screen.getByText("Couldn't load the track")).toBeTruthy()
   expect(elapsed()).toBe("--:--")
   expect(remaining()).toBe("--:--")
@@ -400,23 +399,46 @@ test("a failed track shows the fault, unknown times, a disabled Seek, and what P
   expect(document.querySelector("[aria-live=polite]")?.textContent).toBe("Couldn't load Low tide.")
 })
 
-test("no status badge shows while idle, playing, or paused", async () => {
-  const player = await renderCard()
-  const badge = () => document.querySelector('[data-slot="badge"]')
+test("the title row holds the title alone, directly above the screen", async () => {
+  await renderCard()
+  const row = screen.getByRole("region", { name: "WavePlayer" }).firstElementChild!
 
-  expect(snapshot(player).status.kind).toBe("idle")
-  expect(badge()).toBeNull()
+  expect(shownText(row)).toBe("Low tide")
+  expect(row.nextElementSibling?.getAttribute("data-slot")).toBe("wave-player-screen")
+})
+
+test("the title is set in the marquee, which plays on its own only while the track plays", async () => {
+  const player = await renderCard()
+
+  expect(marquee()?.querySelector('[data-slot="marquee-text"]')?.textContent).toBe("Low tide")
+  expect(marquee()?.getAttribute("data-play")).toBe("hover")
 
   await userEvent.click(screen.getByRole("button", { name: "Play" }))
-  expect(badge()?.textContent).toBe("LOADING")
+  expect(snapshot(player).status.kind).toBe("loading")
+  expect(marquee()?.getAttribute("data-play")).toBe("hover")
 
   await act(() => player.load())
   expect(snapshot(player).status.kind).toBe("playing")
-  expect(badge()).toBeNull()
+  expect(marquee()?.getAttribute("data-play")).toBe("always")
 
   await userEvent.click(screen.getByRole("button", { name: "Play" }))
   act(() => player.strips[0].emit({ kind: "file", name: "a.mp3", duration: null, playback: "paused" }))
   expect(snapshot(player).status.kind).toBe("paused")
+  expect(marquee()?.getAttribute("data-play")).toBe("hover")
+})
+
+test("no status badge shows while a track loads or after it fails", async () => {
+  const player = await renderCard()
+  const badge = () => document.querySelector('[data-slot="badge"]')
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  expect(snapshot(player).status.kind).toBe("loading")
+  expect(badge()).toBeNull()
+
+  act(() =>
+    player.strips[0].emit({ kind: "failed", source: "file", error: { kind: "unknown", message: "404" } })
+  )
+  expect(snapshot(player).status.kind).toBe("failed")
   expect(badge()).toBeNull()
 })
 
@@ -425,7 +447,7 @@ test("with no tracks, every time reads --:--", async () => {
 
   expect(elapsed()).toBe("--:--")
   expect(remaining()).toBe("--:--")
-  expect(screen.getAllByText("--:--")).toHaveLength(3)
+  expect(screen.getAllByText("--:--")).toHaveLength(2)
 })
 
 test("after No Web Audio, Play turns off and hands its focus to the player", async () => {

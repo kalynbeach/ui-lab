@@ -26,6 +26,15 @@ export const TEST_TRACKS: readonly WavePlayerTrack[] = [
   { id: "c", title: "Shoal", src: "/c.mp3", duration: 60 },
 ]
 
+/** The text a person can read in an element: its text without the aria-hidden parts, such as a marquee's moving copies. */
+export function shownText(element: Element): string {
+  const copy = element.cloneNode(true) as Element
+
+  for (const hidden of copy.querySelectorAll('[aria-hidden="true"]')) hidden.remove()
+
+  return copy.textContent ?? ""
+}
+
 export type FakeHandle = FileHandle & { readonly seeks: Seconds[] }
 
 function fakeHandle(name: string): FakeHandle {

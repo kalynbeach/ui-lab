@@ -26,8 +26,8 @@ import {
 import { Toggle as TogglePart } from "@ui-sdk/react/toggle"
 import { cn } from "cn"
 
-import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { Marquee } from "@/components/ui/marquee"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control"
 import { Slider } from "@/components/ui/slider"
@@ -43,9 +43,9 @@ import {
 import { Waveform } from "@/components/waveform/waveform"
 
 import { usePlayer, usePlayerSend } from "./context"
-import { formatClock, formatOrdinal } from "./format"
+import { formatOrdinal } from "./format"
 import type { Repeat } from "./settings"
-import { FAILURE, STATUS_VIEW, timesKnown, type StatusView } from "./status-view"
+import { FAILURE, STATUS_VIEW, type StatusView } from "./status-view"
 
 type Styled = { readonly className?: string }
 
@@ -86,12 +86,17 @@ export function WavePlayerScreen({ className }: Styled) {
   )
 }
 
+// The title stays on one line, so no title changes a view's height. A long
+// one rests on an ellipsis. It scrolls while the track plays, or while the
+// player is hovered or holds keyboard focus. The marquee has no width of its
+// own, so the paragraph takes its container's.
 export function WavePlayerTitle({ className }: Styled) {
   const title = usePlayer((state) => state.current?.track.title ?? null)
+  const playing = usePlayer((state) => state.status.kind === "playing")
 
   return (
-    <p className={cn("type-heading-3 min-w-0 text-pretty wrap-break-word", className)}>
-      {title ?? "No tracks"}
+    <p className={cn("type-heading-3 w-full min-w-0", className)}>
+      <Marquee play={playing ? "always" : "hover"}>{title ?? "No tracks"}</Marquee>
     </p>
   )
 }
@@ -106,28 +111,6 @@ export function WavePlayerByline({ className }: Styled) {
       {byline}
     </p>
   ) : null
-}
-
-export function WavePlayerStatus({ className }: Styled) {
-  const badge = usePlayer((state) => STATUS_VIEW[state.status.kind].badge)
-
-  return badge ? (
-    <Badge variant={badge.variant} face="label" className={className}>
-      {badge.label}
-    </Badge>
-  ) : null
-}
-
-export function WavePlayerDuration({ className }: Styled) {
-  const duration = usePlayer((state) =>
-    timesKnown(state) ? (state.current?.track.duration ?? null) : null
-  )
-
-  return (
-    <span className={cn("type-pixel text-muted-foreground tabular-nums", className)}>
-      {formatClock(duration)}
-    </span>
-  )
 }
 
 export function WavePlayerIndex({ className }: Styled) {
