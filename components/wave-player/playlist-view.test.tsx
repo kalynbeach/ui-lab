@@ -1,7 +1,7 @@
 import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createAgent } from "@ui-sdk/react/agent"
-import { describe, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import {
   toSeconds,
@@ -14,7 +14,26 @@ import {
 import { PlayerStoreContext } from "./context"
 import type { WavePlayerTrack } from "./playlist"
 import { createPlayerStore, type PlayerEnv } from "./store"
+import { shownText } from "./testing"
 import { WavePlayerPlaylist } from "./playlist-view"
+
+// jsdom has no matchMedia, which each title's marquee reads.
+beforeEach(() => {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: false,
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }) as unknown as MediaQueryList
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const TRACKS: readonly WavePlayerTrack[] = [
   { id: "a", title: "Low tide", src: "/a.mp3", artist: "Kevelle", duration: 84 },
@@ -109,8 +128,8 @@ describe("WavePlayerPlaylist", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "Playlist" })).toBeTruthy()
     expect(within(grid()).getAllByRole("row")).toHaveLength(4)
-    expect(row("Low tide").textContent).toBe("01Low tideKevelle01:24")
-    expect(row("Undertow").textContent).toBe("02Undertow--:--")
+    expect(shownText(row("Low tide"))).toBe("01Low tideKevelle01:24")
+    expect(shownText(row("Undertow"))).toBe("02Undertow--:--")
   })
 
   test("an empty list shows one plain line", () => {
@@ -217,6 +236,23 @@ describe("WavePlayerPlaylist", () => {
     sound("paused")
     expect(row("Undertow").hasAttribute("data-playing")).toBe(false)
     expect(row("Undertow").getAttribute("aria-current")).toBe("true")
+  })
+
+  test("a row's title plays on its own only while its track plays", () => {
+    const { store, emit, row } = setup()
+    const play = (title: string) => row(title).querySelector('[data-slot="marquee"]')?.getAttribute("data-play")
+
+    expect(row("Undertow").querySelector('[data-slot="marquee-text"]')?.textContent).toBe("Undertow")
+    expect(play("Undertow")).toBe("hover")
+
+    act(() => store.send({ type: "set-muted", muted: true }))
+    act(() => store.send({ type: "play-track", id: "b" }))
+    emit({ kind: "file", name: "b.mp3", duration: toSeconds(30), playback: "playing" })
+    expect(play("Undertow")).toBe("always")
+    expect(play("Low tide")).toBe("hover")
+
+    emit({ kind: "file", name: "b.mp3", duration: toSeconds(30), playback: "paused" })
+    expect(play("Undertow")).toBe("hover")
   })
 
   test("a failed current row prints --:-- for its time, and the other rows keep theirs", () => {

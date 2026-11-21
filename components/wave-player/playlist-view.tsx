@@ -5,6 +5,7 @@ import { PlayIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import { buttonVariants } from "@/components/ui/button"
+import { Marquee } from "@/components/ui/marquee"
 
 import { usePlayer, usePlayerStore } from "./context"
 import { formatClock, formatCount } from "./format"
@@ -100,9 +101,14 @@ export function WavePlayerPlaylist({
                   {formatCount(index + 1)}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="type-body wrap-break-word text-foreground">
+                  {/* One line, so no title changes a row's height. A long one scrolls while
+                      its track plays, or while this cell is hovered or holds keyboard focus. */}
+                  <Marquee
+                    play={track.id === current && playing ? "always" : "hover"}
+                    className="type-body text-foreground"
+                  >
                     {track.title}
-                  </span>
+                  </Marquee>
                   {track.artist === null ? null : (
                     <span className="type-caption wrap-break-word text-muted-foreground">
                       {track.artist}
