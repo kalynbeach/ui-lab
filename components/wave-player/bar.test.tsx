@@ -4,7 +4,7 @@ import { createAgent } from "@ui-sdk/react/agent"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 
 import { WavePlayerBar } from "./bar"
-import { TEST_TRACKS, testPlayer } from "./testing"
+import { shownText, TEST_TRACKS, testPlayer } from "./testing"
 import { WavePlayerStore } from "./wave-player"
 
 const agent = createAgent()
@@ -54,8 +54,6 @@ async function renderBar(tracks = TEST_TRACKS) {
 
 const snapshot = (player: ReturnType<typeof testPlayer>) => player.store.getSnapshot()
 
-const CUTS_TEXT = /\b(truncate|line-clamp-\S+|text-ellipsis|whitespace-nowrap)\b/
-
 test("each control is named and sends its command", async () => {
   const player = await renderBar()
   const user = userEvent.setup()
@@ -81,14 +79,21 @@ test("each control is named and sends its command", async () => {
   expect(snapshot(player).settings).toMatchObject({ shuffle: true, repeat: "all", muted: true })
 })
 
-test("a long title is never cut off by a class", async () => {
-  const title = "A very long track title that has to wrap across several lines in the bar"
+test("the title is set in the marquee, which keeps it on one line", async () => {
+  const title = "A very long track title that would wrap across several lines in the bar"
   await renderBar([{ id: "long", title, src: "/long.mp3", duration: 60 }])
 
-  const frame = screen.getByRole("region", { name: "WavePlayer" })
-  for (let node: Element | null = screen.getByText(title); node && node !== frame.parentElement; node = node.parentElement) {
-    expect(node.className, node.tagName).not.toMatch(CUTS_TEXT)
-  }
+  const marquee = document.querySelector('[data-slot="marquee"]')
+  expect(marquee?.querySelector('[data-slot="marquee-text"]')?.textContent).toBe(title)
+  expect(marquee?.getAttribute("data-play")).toBe("hover")
+})
+
+test("no status badge shows while a track loads", async () => {
+  const player = await renderBar()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  expect(snapshot(player).status.kind).toBe("loading")
+  expect(document.querySelector('[data-slot="badge"]')).toBeNull()
 })
 
 test("the bar shows a skeleton until its tracks load, then the player in the same frame", async () => {
@@ -104,7 +109,7 @@ test("the bar shows a skeleton until its tracks load, then the player in the sam
 
   expect(screen.getByRole("region", { name: "WavePlayer" })).toBe(frame)
   expect(frame.querySelector("[data-slot=skeleton]")).toBeNull()
-  expect(screen.getByText("Low tide")).toBeTruthy()
+  expect(shownText(frame)).toContain("Low tide")
   expect(screen.getByRole("button", { name: "Play" })).toBeTruthy()
 })
 

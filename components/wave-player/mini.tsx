@@ -12,7 +12,6 @@ import {
   WavePlayerByline,
   WavePlayerScreen,
   WavePlayerSettings,
-  WavePlayerStatus,
   WavePlayerTitle,
   WavePlayerTransport,
 } from "./parts"
@@ -43,10 +42,7 @@ export function WavePlayerMini({
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <WavePlayerTitle className="pt-0.5" />
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 empty:hidden">
-            <WavePlayerByline />
-            <WavePlayerStatus />
-          </div>
+          <WavePlayerByline />
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <WavePlayerSettings size="sm" />

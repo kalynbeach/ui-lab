@@ -50,8 +50,6 @@ async function renderMini(children: React.ReactNode = <WavePlayerMini />, tracks
 
 const snapshot = (player: ReturnType<typeof testPlayer>) => player.store.getSnapshot()
 
-const CUTS_TEXT = /\b(truncate|line-clamp-\S+|text-ellipsis|whitespace-nowrap)\b/
-
 test("each control is named and sends its command", async () => {
   const player = await renderMini()
   const user = userEvent.setup()
@@ -80,14 +78,21 @@ test("each control is named and sends its command", async () => {
   expect(snapshot(player).settings).toMatchObject({ shuffle: true, repeat: "one", muted: true })
 })
 
-test("a long title is never cut off by a class", async () => {
-  const title = "A very long track title that has to wrap across several lines in the mini"
+test("the title is set in the marquee, which keeps it on one line", async () => {
+  const title = "A very long track title that would wrap across several lines in the mini"
   await renderMini(<WavePlayerMini />, [{ id: "long", title, src: "/long.mp3", duration: 60 }])
 
-  const frame = screen.getByRole("region", { name: "WavePlayer" })
-  for (let node: Element | null = screen.getByText(title); node && node !== frame.parentElement; node = node.parentElement) {
-    expect(node.className, node.tagName).not.toMatch(CUTS_TEXT)
-  }
+  const marquee = document.querySelector('[data-slot="marquee"]')
+  expect(marquee?.querySelector('[data-slot="marquee-text"]')?.textContent).toBe(title)
+  expect(marquee?.getAttribute("data-play")).toBe("hover")
+})
+
+test("no status badge shows while a track loads", async () => {
+  const player = await renderMini()
+
+  await userEvent.click(screen.getByRole("button", { name: "Play" }))
+  expect(snapshot(player).status.kind).toBe("loading")
+  expect(document.querySelector('[data-slot="badge"]')).toBeNull()
 })
 
 test("expand renders as a link named Open player", async () => {

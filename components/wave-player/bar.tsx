@@ -9,7 +9,6 @@ import { WavePlayerFrame } from "./frame"
 import {
   WavePlayerScreen,
   WavePlayerSettings,
-  WavePlayerStatus,
   WavePlayerTitle,
   WavePlayerTransport,
 } from "./parts"
@@ -37,10 +36,7 @@ export function WavePlayerBar({ className }: { readonly className?: string }) {
             <WavePlayerScreen className="size-9" />
             <div className="@container flex min-w-0 flex-1 flex-col items-start gap-1">
               <WavePlayerTitle />
-              <div className="flex items-center gap-2">
-                <WavePlayerClock className="@max-[5.75rem]:[&>[data-slot=wave-player-clock-duration]]:hidden" />
-                <WavePlayerStatus />
-              </div>
+              <WavePlayerClock className="@max-[5.75rem]:[&>[data-slot=wave-player-clock-duration]]:hidden" />
             </div>
             <WavePlayerTransport size="sm" className="shrink-0" />
             <WavePlayerSettings size="sm" className="shrink-0" />

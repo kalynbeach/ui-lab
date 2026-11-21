@@ -17,10 +17,8 @@ import { Dialog, DialogClose, DialogPanel, DialogTitle, DialogTrigger } from "@/
 import { WavePlayerFrame } from "./frame"
 import {
   WavePlayerByline,
-  WavePlayerDuration,
   WavePlayerIndex,
   WavePlayerScreen,
-  WavePlayerStatus,
   WavePlayerTitle,
 } from "./parts"
 import { WavePlayerControls } from "./card"
@@ -90,9 +88,7 @@ export function WavePlayerWithPlaylist({ className }: { readonly className?: str
         >
           <div className="flex items-start justify-between gap-3">
             <WavePlayerTitle className="pt-0.5" />
-            <div className="flex min-h-6 shrink-0 items-center gap-2">
-              <WavePlayerStatus />
-              <WavePlayerDuration />
+            <div className="flex min-h-6 shrink-0 items-center">
               {wide === true ? null : (
                 <PlaylistPanel
                   className="@min-[64.25rem]:hidden"
